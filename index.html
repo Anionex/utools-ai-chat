@@ -523,6 +523,16 @@
     .model-select-list::-webkit-scrollbar-thumb:hover {
       background: #5d5d5d;
     }
+    /* 确认对话框样式 */
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .modal-body {
+      padding: 15px 0;
+    }
   </style>
 </head>
 <body>
@@ -616,7 +626,7 @@
       </div>
       <div class="form-group">
         <label for="system-prompt">系统提示词</label>
-        <textarea id="system-prompt" placeholder="输入系统提示词，定义AI助手的行为和特性">你是一个有用的AI助手，能够回答用户的各种问题。</textarea>
+        <textarea id="system-prompt" placeholder="输入系统提示词，定义AI助手的行为和特性"></textarea>
       </div>
       <button id="add-model-btn" class="button">添加模型</button>
 
@@ -629,7 +639,146 @@
     </div>
   </div>
 
+  <!-- 确认对话框 -->
+  <div id="confirm-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">确认删除</h3>
+        <button class="close-button" id="close-confirm">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-message">确定要删除这个模型吗？</p>
+      </div>
+      <div class="modal-footer">
+        <button id="confirm-cancel" class="button button-secondary">取消</button>
+        <button id="confirm-ok" class="button">确定</button>
+      </div>
+    </div>
+  </div>
+
   <script>
+    // 模型管理器类
+    class ModelManager {
+        constructor() {
+            this.modelConfigs = [];
+            this.currentModelIndex = 0;
+            this.loadModelConfigs();
+        }
+
+        // 加载模型配置
+        loadModelConfigs() {
+            this.modelConfigs = window.preload.dbUtil.getModelConfig() || [];
+            this.currentModelIndex = window.preload.dbUtil.getModelIndex() || 0;
+            
+            // 确保每个模型配置都有必要的字段
+            this.modelConfigs = this.modelConfigs.map(config => ({
+                name: config.name || '未命名模型',
+                model: config.model || 'gpt-3.5-turbo',
+                url: config.url || 'https://api.openai.com/v1/chat/completions',
+                key: config.key || '',
+                systemPrompt: config.systemPrompt || ''
+            }));
+        }
+
+        // 验证模型配置
+        validateModelConfig(config) {
+            const errors = [];
+            
+            if (!config.name || config.name.trim() === '') {
+                errors.push('模型名称不能为空');
+            }
+            
+            if (!config.model || config.model.trim() === '') {
+                errors.push('模型ID不能为空');
+            }
+            
+            if (!config.url || config.url.trim() === '') {
+                errors.push('API地址不能为空');
+            } else if (!this.isValidUrl(config.url)) {
+                errors.push('API地址格式不正确');
+            }
+            
+            if (!config.key || config.key.trim() === '') {
+                errors.push('API密钥不能为空');
+            }
+            
+            return {
+                isValid: errors.length === 0,
+                errors
+            };
+        }
+
+        // 验证URL格式
+        isValidUrl(url) {
+            try {
+                new URL(url);
+                return true;
+            } catch {
+                return false;
+            }
+        }
+
+        // 添加模型
+        addModel(config) {
+            const validation = this.validateModelConfig(config);
+            if (!validation.isValid) {
+                throw new Error(validation.errors.join('\n'));
+            }
+
+            this.modelConfigs.push(config);
+            this.saveModelConfigs();
+        }
+
+        // 更新模型
+        updateModel(index, config) {
+            if (index < 0 || index >= this.modelConfigs.length) {
+                throw new Error('模型索引无效');
+            }
+
+            const validation = this.validateModelConfig(config);
+            if (!validation.isValid) {
+                throw new Error(validation.errors.join('\n'));
+            }
+
+            this.modelConfigs[index] = config;
+            this.saveModelConfigs();
+        }
+
+        // 删除模型
+        deleteModel(index) {
+            if (index < 0 || index >= this.modelConfigs.length) {
+                throw new Error('模型索引无效');
+            }
+
+            this.modelConfigs.splice(index, 1);
+            this.saveModelConfigs();
+        }
+
+        // 保存模型配置
+        saveModelConfigs() {
+            window.preload.dbUtil.saveModelConfig(this.modelConfigs);
+        }
+
+        // 获取当前选中的模型
+        getCurrentModel() {
+            return this.modelConfigs[this.currentModelIndex];
+        }
+
+        // 设置当前选中的模型
+        setCurrentModel(index) {
+            if (index < 0 || index >= this.modelConfigs.length) {
+                throw new Error('模型索引无效');
+            }
+            this.currentModelIndex = index;
+            window.preload.dbUtil.saveModelIndex(index);
+        }
+
+        // 获取所有模型
+        getAllModels() {
+            return [...this.modelConfigs];
+        }
+    }
+
     // 获取DOM元素
     const chatList = document.getElementById('chat-list');
     const chatMessages = document.getElementById('chat-messages');
@@ -664,33 +813,40 @@
     const modelSelectList = document.getElementById('model-select-list');
     const modelSelectInput = document.getElementById('model-select-input');
     
+    // 确认对话框相关元素
+    const confirmModal = document.getElementById('confirm-modal');
+    const confirmMessage = document.getElementById('confirm-message');
+    const confirmOk = document.getElementById('confirm-ok');
+    const confirmCancel = document.getElementById('confirm-cancel');
+    const closeConfirm = document.getElementById('close-confirm');
+    
     // 当前会话ID
     let currentSessionId = null;
     // 当前会话消息
     let currentMessages = [];
-    // 模型配置列表
-    let modelConfigs = [];
+    // 模型管理器实例
+    const modelManager = new ModelManager();
     
     // 更新模型选择按钮文本
     function updateModelButtonText() {
-      const selectedModelIndex = window.preload.dbUtil.getModelIndex() || 0;
-      if (modelConfigs.length > 0 && selectedModelIndex < modelConfigs.length) {
-        const selectedModel = modelConfigs[selectedModelIndex];
-        modelSelect.value = selectedModelIndex;
-        modelSelect.selectedIndex = selectedModelIndex;
-      }
+        const selectedModel = modelManager.getCurrentModel();
+        if (selectedModel) {
+            modelSelect.value = modelManager.currentModelIndex;
+            modelSelect.selectedIndex = modelManager.currentModelIndex;
+        }
     }
     
     // 初始化
     function init() {
-      // 加载模型配置
-      loadModelConfigs();
-      // 加载聊天记录
-      loadChatSessions();
-      // 设置事件监听
-      setupEventListeners();
-      // 配置Markdown渲染器
-      configureMarkdown();
+        // 加载聊天记录
+        loadChatSessions();
+        // 设置事件监听
+        setupEventListeners();
+        // 配置Markdown渲染器
+        configureMarkdown();
+        // 更新模型选择
+        updateModelSelect();
+        updateModelList();
     }
     
     // 配置Markdown渲染器
@@ -706,115 +862,144 @@
       });
     }
     
-    // 加载模型配置
-    function loadModelConfigs() {
-      modelConfigs = window.preload.dbUtil.getModelConfig() || [];
-      console.log('加载的模型配置:', modelConfigs); // 添加调试日志
-      
-      // 确保每个模型配置都有必要的字段
-      modelConfigs = modelConfigs.map(config => ({
-        name: config.name || '未命名模型',
-        model: config.model || 'gpt-3.5-turbo',
-        url: config.url || 'https://api.openai.com/v1/chat/completions',
-        key: config.key || '',
-        systemPrompt: config.systemPrompt || '你是一个有用的AI助手，能够回答用户的各种问题。'
-      }));
-      
-      updateModelSelect();
-      updateModelList();
-    }
-    
     // 更新模型选择下拉框
     function updateModelSelect() {
-      modelSelect.innerHTML = '';
-      
-      if (modelConfigs.length === 0) {
-        const option = document.createElement('option');
-        option.value = '';
-        option.textContent = '请先添加模型';
-        modelSelect.appendChild(option);
-        modelSelect.disabled = true;
-      } else {
-        modelSelect.disabled = false;
-        modelConfigs.forEach((config, index) => {
-          const option = document.createElement('option');
-          option.value = index;
-          option.textContent = config.name;
-          modelSelect.appendChild(option);
-        });
-      }
+        modelSelect.innerHTML = '';
+        
+        const models = modelManager.getAllModels();
+        if (models.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = '请先添加模型';
+            modelSelect.appendChild(option);
+            modelSelect.disabled = true;
+        } else {
+            modelSelect.disabled = false;
+            models.forEach((config, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = config.name;
+                modelSelect.appendChild(option);
+            });
+        }
     }
     
     // 更新模型列表
     function updateModelList() {
-      modelListContainer.innerHTML = '';
-      
-      if (modelConfigs.length === 0) {
-        modelListContainer.innerHTML = '<p>暂无模型，请添加</p>';
-        return;
-      }
-      
-      modelConfigs.forEach((config, index) => {
-        const modelItem = document.createElement('div');
-        modelItem.className = 'model-item';
+        modelListContainer.innerHTML = '';
         
-        const modelInfo = document.createElement('div');
-        modelInfo.className = 'model-item-info';
+        const models = modelManager.getAllModels();
+        if (models.length === 0) {
+            modelListContainer.innerHTML = '<p>暂无模型，请添加</p>';
+            return;
+        }
         
-        const modelItemName = document.createElement('div');
-        modelItemName.className = 'model-item-name';
-        modelItemName.textContent = config.name;
-        
-        const modelItemUrl = document.createElement('div');
-        modelItemUrl.className = 'model-item-url';
-        modelItemUrl.textContent = `${config.url} (${config.model})`;
-        
-        const modelItemPrompt = document.createElement('div');
-        modelItemPrompt.className = 'model-item-url';
-        modelItemPrompt.textContent = `系统提示词: ${config.systemPrompt ? (config.systemPrompt.substring(0, 30) + '...') : '无'}`;
-        
-        modelInfo.appendChild(modelItemName);
-        modelInfo.appendChild(modelItemUrl);
-        modelInfo.appendChild(modelItemPrompt);
-        
-        const modelActions = document.createElement('div');
-        modelActions.className = 'model-item-actions';
-        
-        const editBtn = document.createElement('button');
-        editBtn.className = 'button';
-        editBtn.textContent = '编辑';
-        editBtn.onclick = () => editModel(index);
-        
-        const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'button button-secondary';
-        deleteBtn.textContent = '删除';
-        deleteBtn.onclick = () => deleteModel(index);
-        
-        modelActions.appendChild(editBtn);
-        modelActions.appendChild(deleteBtn);
-        
-        modelItem.appendChild(modelInfo);
-        modelItem.appendChild(modelActions);
-        
-        modelListContainer.appendChild(modelItem);
-      });
+        models.forEach((config, index) => {
+            const modelItem = document.createElement('div');
+            modelItem.className = 'model-item';
+            
+            const modelInfo = document.createElement('div');
+            modelInfo.className = 'model-item-info';
+            
+            const modelItemName = document.createElement('div');
+            modelItemName.className = 'model-item-name';
+            modelItemName.textContent = config.name;
+            
+            const modelItemUrl = document.createElement('div');
+            modelItemUrl.className = 'model-item-url';
+            modelItemUrl.textContent = `${config.url} (${config.model})`;
+            
+            const modelItemPrompt = document.createElement('div');
+            modelItemPrompt.className = 'model-item-url';
+            modelItemPrompt.textContent = `系统提示词: ${config.systemPrompt || '无'}`;
+            
+            modelInfo.appendChild(modelItemName);
+            modelInfo.appendChild(modelItemUrl);
+            modelInfo.appendChild(modelItemPrompt);
+            
+            const modelActions = document.createElement('div');
+            modelActions.className = 'model-item-actions';
+            
+            const editBtn = document.createElement('button');
+            editBtn.className = 'button';
+            editBtn.textContent = '编辑';
+            editBtn.onclick = () => editModel(index);
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'button button-secondary';
+            deleteBtn.textContent = '删除';
+            deleteBtn.onclick = () => deleteModel(index);
+            
+            modelActions.appendChild(editBtn);
+            modelActions.appendChild(deleteBtn);
+            
+            modelItem.appendChild(modelInfo);
+            modelItem.appendChild(modelActions);
+            
+            modelListContainer.appendChild(modelItem);
+        });
     }
     
     // 编辑模型
     function editModel(index) {
-      const config = modelConfigs[index];
-      modelName.value = config.name;
-      modelId.value = config.model;
-      apiUrl.value = config.url;
-      apiKey.value = config.key;
-      systemPrompt.value = config.systemPrompt || '你是一个有用的AI助手，能够回答用户的各种问题。';
-      
-      // 删除原模型
-      modelConfigs.splice(index, 1);
-      
-      // 更新UI
-      updateModelSelect();
-      updateModelList();
+        const config = modelManager.getAllModels()[index];
+        if (!config) {
+            showNotification('模型配置不存在', 'error');
+            return;
+        }
+        
+        // 保存当前编辑的模型索引
+        addModelBtn.dataset.editIndex = index;
+        
+        // 填充表单
+        modelName.value = config.name || '';
+        modelId.value = config.model || '';
+        apiUrl.value = config.url || '';
+        apiKey.value = config.key || '';
+        systemPrompt.value = config.systemPrompt || '';
+        
+        // 修改添加按钮的文本
+        addModelBtn.textContent = '更新模型';
+    }
+    
+    // 更新模型
+    function updateModel(index) {
+        const config = {
+            name: modelName.value.trim(),
+            model: modelId.value.trim(),
+            url: apiUrl.value.trim(),
+            key: apiKey.value.trim(),
+            systemPrompt: systemPrompt.value.trim()
+        };
+        
+        try {
+            modelManager.updateModel(index, config);
+            
+            // 更新UI
+            updateModelSelect();
+            updateModelList();
+            
+            // 重置表单和按钮
+            resetModelForm();
+            
+            // 显示成功通知
+            showNotification('模型已更新', 'success');
+        } catch (error) {
+            showNotification(error.message, 'error');
+        }
+    }
+    
+    // 重置模型表单
+    function resetModelForm() {
+        // 清除编辑索引
+        delete addModelBtn.dataset.editIndex;
+        
+        modelName.value = '';
+        modelId.value = '';
+        apiUrl.value = '';
+        apiKey.value = '';
+        systemPrompt.value = '';
+        addModelBtn.textContent = '添加模型';
     }
     
     // 加载聊天记录
@@ -979,160 +1164,151 @@
     
     // 发送消息
     async function sendMessage() {
-      const message = messageInput.value.trim();
-      if (!message) return;
-      
-      // 如果没有当前会话，创建一个新会话
-      if (currentSessionId === null) {
-        createNewChat();
-      }
-      
-      // 添加用户消息
-      const userMessage = {
-        role: 'user',
-        content: message,
-        timestamp: Date.now()
-      };
-      
-      currentMessages.push(userMessage);
-      
-      // 更新UI
-      messageInput.value = '';
-      renderMessages();
-      
-      // 保存到数据库
-      window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
-      
-      // 更新聊天列表
-      loadChatSessions();
-      
-      // 获取选中的模型
-      const selectedModelIndex = modelSelect.value;
-      if (selectedModelIndex === '' || modelConfigs.length === 0) {
-        alert('请先添加模型配置');
-        return;
-      }
-      
-      const modelConfig = modelConfigs[selectedModelIndex];
-      
-      // 准备发送给AI的消息
-      const aiMessages = [];
-      
-      // 添加系统提示词
-      if (modelConfig.systemPrompt) {
-        aiMessages.push({
-          role: 'system',
-          content: modelConfig.systemPrompt
-        });
-      }
-      
-      // 添加对话历史
-      currentMessages.forEach(msg => {
-        if (msg.role !== 'system') {
-          aiMessages.push({
-            role: msg.role,
-            content: msg.content
-          });
+        const message = messageInput.value.trim();
+        if (!message) return;
+        
+        // 如果没有当前会话，创建一个新会话
+        if (currentSessionId === null) {
+            createNewChat();
         }
-      });
-      
-      try {
-        // 添加AI回复占位
-        const aiMessage = {
-          role: 'assistant',
-          content: '',
-          timestamp: Date.now()
+        
+        // 添加用户消息
+        const userMessage = {
+            role: 'user',
+            content: message,
+            timestamp: Date.now()
         };
         
-        currentMessages.push(aiMessage);
+        currentMessages.push(userMessage);
+        
+        // 更新UI
+        messageInput.value = '';
         renderMessages();
-        
-        // 调用AI API并处理流式输出
-        await window.preload.aiUtil.callAI(modelConfig, aiMessages, (content) => {
-          aiMessage.content = content;
-          renderMessages();
-        });
-        
-        // 更新UI和保存数据
         
         // 保存到数据库
         window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
         
         // 更新聊天列表
         loadChatSessions();
-      } catch (error) {
-        console.error('发送消息失败:', error);
         
-        // 移除加载中消息
-        currentMessages.pop();
+        // 获取选中的模型
+        const selectedModel = modelManager.getCurrentModel();
+        if (!selectedModel) {
+            showNotification('请先添加模型配置', 'warning');
+            return;
+        }
         
-        // 添加错误消息
-        const errorMessage = {
-          role: 'assistant',
-          content: `发生错误: ${error.message}`,
-          timestamp: Date.now()
-        };
+        // 准备发送给AI的消息
+        const aiMessages = [];
         
-        currentMessages.push(errorMessage);
+        // 添加系统提示词
+        if (selectedModel.systemPrompt) {
+            aiMessages.push({
+                role: 'system',
+                content: selectedModel.systemPrompt
+            });
+        }
         
-        // 更新UI
-        renderMessages();
+        // 添加对话历史
+        currentMessages.forEach(msg => {
+            if (msg.role !== 'system') {
+                aiMessages.push({
+                    role: msg.role,
+                    content: msg.content
+                });
+            }
+        });
         
-        // 保存到数据库
-        window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
-      }
+        try {
+            // 添加AI回复占位
+            const aiMessage = {
+                role: 'assistant',
+                content: '',
+                timestamp: Date.now()
+            };
+            
+            currentMessages.push(aiMessage);
+            renderMessages();
+            
+            // 调用AI API并处理流式输出
+            await window.preload.aiUtil.callAI(selectedModel, aiMessages, (content) => {
+                aiMessage.content = content;
+                renderMessages();
+            });
+            
+            // 保存到数据库
+            window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
+            
+            // 更新聊天列表
+            loadChatSessions();
+        } catch (error) {
+            console.error('发送消息失败:', error);
+            
+            // 移除加载中消息
+            currentMessages.pop();
+            
+            // 添加错误消息
+            const errorMessage = {
+                role: 'assistant',
+                content: `发生错误: ${error.message}`,
+                timestamp: Date.now()
+            };
+            
+            currentMessages.push(errorMessage);
+            
+            // 更新UI
+            renderMessages();
+            
+            // 保存到数据库
+            window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
+        }
     }
     
     // 添加模型
     function addModel() {
-      const name = modelName.value.trim();
-      const model = modelId.value.trim();
-      const url = apiUrl.value.trim();
-      const key = apiKey.value.trim();
-      const prompt = systemPrompt.value.trim();
-      
-      if (!name || !model || !url || !key) {
-        alert('请填写所有必填字段');
-        return;
-      }
-      
-      const newModel = { 
-        name, 
-        model, 
-        url, 
-        key,
-        systemPrompt: prompt
-      };
-      
-      modelConfigs.push(newModel);
-      
-      // 保存到数据库
-      window.preload.dbUtil.saveModelConfig(modelConfigs);
-      
-      // 更新UI
-      updateModelSelect();
-      updateModelList();
-      
-      // 清空表单
-      modelName.value = '';
-      modelId.value = '';
-      apiUrl.value = '';
-      apiKey.value = '';
-      systemPrompt.value = '你是一个有用的AI助手，能够回答用户的各种问题。';
+        const config = {
+            name: modelName.value.trim(),
+            model: modelId.value.trim(),
+            url: apiUrl.value.trim(),
+            key: apiKey.value.trim(),
+            systemPrompt: systemPrompt.value.trim()
+        };
+        
+        try {
+            modelManager.addModel(config);
+            
+            // 更新UI
+            updateModelSelect();
+            updateModelList();
+            
+            // 清空表单
+            resetModelForm();
+            
+            // 显示成功通知
+            showNotification('模型已添加', 'success');
+        } catch (error) {
+            showNotification(error.message, 'error');
+        }
     }
     
     // 删除模型
     function deleteModel(index) {
-      if (confirm('确定要删除这个模型吗？')) {
-        modelConfigs.splice(index, 1);
-        
-        // 保存到数据库
-        window.preload.dbUtil.saveModelConfig(modelConfigs);
-        
-        // 更新UI
-        updateModelSelect();
-        updateModelList();
-      }
+        showConfirm('确定要删除这个模型吗？', (confirmed) => {
+            if (confirmed) {
+                try {
+                    modelManager.deleteModel(index);
+                    
+                    // 更新UI
+                    updateModelSelect();
+                    updateModelList();
+                    
+                    // 显示成功通知
+                    showNotification('模型已删除', 'success');
+                } catch (error) {
+                    showNotification(error.message, 'error');
+                }
+            }
+        });
     }
     
     // 删除聊天会话
@@ -1179,7 +1355,7 @@
     
     // 显示模型选择弹窗
     function showModelSelectModal() {
-      if (modelConfigs.length === 0) {
+      if (modelManager.getAllModels().length === 0) {
         showNotification('请先添加模型配置', 'warning');
         return;
       }
@@ -1189,7 +1365,7 @@
       let activeIndex = parseInt(modelSelect.value) || 0;
       
       // 显示所有模型
-      updateModelListItems(modelConfigs, activeIndex);
+      updateModelListItems(modelManager.getAllModels(), activeIndex);
       
       // 显示弹窗
       modelSelectModal.classList.add('show');
@@ -1277,7 +1453,7 @@
         default:
           // 数字键选择（可选）
           const number = parseInt(e.key);
-          if (!isNaN(number) && number >= 1 && number <= modelConfigs.length) {
+          if (!isNaN(number) && number >= 1 && number <= modelManager.getAllModels().length) {
             selectModel(number - 1);
           }
       }
@@ -1285,7 +1461,7 @@
     
     // 搜索模型
     function searchModels(query) {
-      const filteredModels = modelConfigs.filter(model => 
+      const filteredModels = modelManager.getAllModels().filter(model => 
         model.name.toLowerCase().includes(query.toLowerCase())
       );
       
@@ -1302,36 +1478,45 @@
     
     // 选择模型
     function selectModel(index) {
-      // 获取当前显示的模型列表
-      const displayedItems = modelSelectList.querySelectorAll('.model-select-item');
-      if (index >= 0 && index < displayedItems.length) {
-        // 获取选中的模型名称
-        const selectedModelName = displayedItems[index].querySelector('.model-select-name').textContent;
+      try {
+        // 获取当前显示的模型列表
+        const displayedItems = modelSelectList.querySelectorAll('.model-select-item');
+        const activeItem = modelSelectList.querySelector('.model-select-item.active');
+        const activeIndex = Array.from(displayedItems).indexOf(activeItem);
         
-        // 在原始模型配置中找到对应的索引
-        const originalIndex = modelConfigs.findIndex(model => model.name === selectedModelName);
+        // 获取原始模型列表
+        const allModels = modelManager.getAllModels();
         
-        if (originalIndex !== -1) {
-          // 更新下拉框的值和显示文本
-          modelSelect.value = originalIndex;
-          modelSelect.selectedIndex = originalIndex;
-          
-          // 更新当前选中的模型配置
-          const selectedModel = modelConfigs[originalIndex];
-          
-          // 保存当前选择的模型索引
-          window.preload.dbUtil.saveModelConfig(modelConfigs);
-          window.preload.dbUtil.saveModelIndex(originalIndex);
-          
-          // 隐藏弹窗
-          hideModelSelectModal();
-          
-          // 显示通知
-          showNotification(`已切换到模型: ${selectedModel.name}`, 'success');
-          
-          // 清空搜索框
-          modelSelectInput.value = '';
+        // 如果正在搜索，需要找到对应的原始索引
+        let originalIndex = index;
+        if (modelSelectInput.value.trim() !== '') {
+          const searchQuery = modelSelectInput.value.toLowerCase();
+          const matchingModels = allModels.filter(model => 
+            model.name.toLowerCase().includes(searchQuery)
+          );
+          if (matchingModels.length > 0) {
+            // 使用当前选中的模型名称来找到原始索引
+            const selectedModelName = matchingModels[activeIndex].name;
+            originalIndex = allModels.findIndex(model => model.name === selectedModelName);
+          }
         }
+        
+        modelManager.setCurrentModel(originalIndex);
+        
+        // 更新下拉框的值和显示文本
+        modelSelect.value = originalIndex;
+        modelSelect.selectedIndex = originalIndex;
+        
+        // 隐藏弹窗
+        hideModelSelectModal();
+        
+        // 显示通知
+        showNotification(`已切换到模型: ${modelManager.getCurrentModel().name}`, 'success');
+        
+        // 清空搜索框
+        modelSelectInput.value = '';
+      } catch (error) {
+        showNotification(error.message, 'error');
       }
     }
     
@@ -1380,8 +1565,18 @@
         }
       });
       
-      // 添加模型
-      addModelBtn.addEventListener('click', addModel);
+      // 添加模型按钮事件监听
+      addModelBtn.addEventListener('click', () => {
+        if (addModelBtn.textContent === '更新模型') {
+          // 获取编辑索引
+          const editIndex = parseInt(addModelBtn.dataset.editIndex);
+          if (!isNaN(editIndex)) {
+            updateModel(editIndex);
+          }
+        } else {
+          addModel();
+        }
+      });
       
       // 监听快捷键
       document.addEventListener('keydown', (e) => {
@@ -1416,12 +1611,43 @@
       });
     }
     
+    // 显示确认对话框
+    function showConfirm(message, callback) {
+      confirmMessage.textContent = message;
+      confirmModal.classList.add('active');
+      
+      // 设置确认按钮的回调
+      const handleConfirm = () => {
+        confirmModal.classList.remove('active');
+        callback(true);
+        // 移除事件监听
+        confirmOk.removeEventListener('click', handleConfirm);
+        confirmCancel.removeEventListener('click', handleCancel);
+        closeConfirm.removeEventListener('click', handleCancel);
+      };
+      
+      // 设置取消按钮的回调
+      const handleCancel = () => {
+        confirmModal.classList.remove('active');
+        callback(false);
+        // 移除事件监听
+        confirmOk.removeEventListener('click', handleConfirm);
+        confirmCancel.removeEventListener('click', handleCancel);
+        closeConfirm.removeEventListener('click', handleCancel);
+      };
+      
+      // 添加事件监听
+      confirmOk.addEventListener('click', handleConfirm);
+      confirmCancel.addEventListener('click', handleCancel);
+      closeConfirm.addEventListener('click', handleCancel);
+    }
+    
     // 初始化应用
     document.addEventListener('DOMContentLoaded', () => {
       // 获取保存的模型配置
       const savedModelConfigs = window.preload.dbUtil.getModelConfig()
       if (savedModelConfigs && savedModelConfigs.length > 0) {
-        modelConfigs = savedModelConfigs
+        modelManager.modelConfigs = savedModelConfigs
       }
       
       // 获取保存的模型索引

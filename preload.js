@@ -173,7 +173,7 @@ const contextMenuUtil = {
       }
       
       // 复制结果到剪贴板
-      clipboard.writeText(result)
+      this.copyToClipboard(result)
       
       // 显示成功通知
       window.utools.showNotification(`${action === 'translate' ? '翻译' : '解释'}完成，结果已复制到剪贴板`)
@@ -365,11 +365,11 @@ const contextMenuUtil = {
           const text = document.querySelector('.result').textContent;
           navigator.clipboard.writeText(text)
             .then(() => {
-              alert('已复制到剪贴板');
+              window.utools.showNotification('已复制到剪贴板', 'success');
             })
             .catch(err => {
               console.error('复制失败:', err);
-              alert('复制失败，请手动选择文本复制');
+              window.utools.showNotification('复制失败，请手动选择文本复制', 'error');
             });
         });
         
@@ -380,6 +380,16 @@ const contextMenuUtil = {
     </body>
     </html>
     `;
+  },
+  
+  // 复制文本到剪贴板
+  copyToClipboard: (text) => {
+    try {
+      navigator.clipboard.writeText(text);
+      ipcRenderer.send('show-notification', '已复制到剪贴板', 'success');
+    } catch (error) {
+      ipcRenderer.send('show-notification', '复制失败，请手动选择文本复制', 'error');
+    }
   }
 }
 
