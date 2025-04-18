@@ -42,6 +42,16 @@ const dbUtil = {
   // 获取模型配置
   getModelConfig() {
     return window.utools.dbStorage.getItem('model_config') || []
+  },
+
+  // 保存当前选择的模型索引
+  saveModelIndex(index) {
+    return window.utools.dbStorage.setItem('model_index', index)
+  },
+
+  // 获取当前选择的模型索引
+  getModelIndex() {
+    return window.utools.dbStorage.getItem('model_index') || 0
   }
 }
 

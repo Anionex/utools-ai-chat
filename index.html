@@ -84,14 +84,15 @@
       text-overflow: ellipsis;
     }
     .chat-item-delete {
+      width: 20px;
+      height: 20px;
       opacity: 0;
       transition: opacity 0.2s;
-      background: none;
-      border: none;
-      color: #aaa;
       cursor: pointer;
-      padding: 5px;
-      margin-left: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
     }
     .chat-item:hover .chat-item-delete {
       opacity: 1;
@@ -388,9 +389,160 @@
       color: #abb2bf;
       border-radius: 4px;
     }
+    /* 通知组件样式 */
+    .notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 12px 20px;
+      background-color: #2d2d2d;
+      color: #fff;
+      border-radius: 4px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      opacity: 0;
+      transform: translateX(100%);
+      transition: all 0.3s ease;
+      z-index: 1000;
+    }
+    .notification.show {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    .notification.success {
+      background-color: #4caf50;
+    }
+    .notification.error {
+      background-color: #f44336;
+    }
+    .notification.warning {
+      background-color: #ff9800;
+    }
+    .notification-icon {
+      font-size: 20px;
+    }
+    .notification-content {
+      flex: 1;
+    }
+    .notification-close {
+      background: none;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      padding: 0;
+      font-size: 16px;
+      opacity: 0.7;
+      transition: opacity 0.2s;
+    }
+    .notification-close:hover {
+      opacity: 1;
+    }
+    /* 模型选择弹窗样式 */
+    .model-select-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #2d2d2d;
+      color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      padding: 20px;
+      min-width: 400px;
+      max-width: 600px;
+      z-index: 1001;
+      display: none;
+    }
+    .model-select-modal.show {
+      display: block;
+    }
+    .model-select-title {
+      font-size: 14px;
+      color: #999;
+      margin-bottom: 10px;
+      padding: 0 10px;
+    }
+    .model-select-search {
+      margin-bottom: 10px;
+    }
+    .model-select-input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .model-select-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .model-select-item {
+      padding: 8px 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background-color 0.2s;
+      border-radius: 4px;
+      margin: 2px 0;
+    }
+    .model-select-item:hover {
+      background-color: #3d3d3d;
+    }
+    .model-select-item.active {
+      background-color: #4d4d4d;
+    }
+    .model-select-name {
+      flex: 1;
+      font-size: 14px;
+    }
+    .model-select-shortcut {
+      color: #999;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .model-select-item:hover .model-select-shortcut {
+      opacity: 1;
+    }
+    /* 滚动条样式 */
+    .model-select-list::-webkit-scrollbar {
+      width: 8px;
+    }
+    .model-select-list::-webkit-scrollbar-track {
+      background: #2d2d2d;
+    }
+    .model-select-list::-webkit-scrollbar-thumb {
+      background: #4d4d4d;
+      border-radius: 4px;
+    }
+    .model-select-list::-webkit-scrollbar-thumb:hover {
+      background: #5d5d5d;
+    }
   </style>
 </head>
 <body>
+  <!-- 通知组件 -->
+  <div id="notification" class="notification">
+    <span class="notification-icon">ℹ️</span>
+    <span class="notification-content"></span>
+    <button class="notification-close">&times;</button>
+  </div>
+
+  <!-- 模型选择弹窗 -->
+  <div id="model-select-modal" class="model-select-modal">
+    <div class="model-select-title">选择模型 (Ctrl+Alt+T)</div>
+    <div class="model-select-search">
+      <input type="text" id="model-select-input" class="model-select-input" placeholder="输入模型名称搜索...">
+    </div>
+    <ul id="model-select-list" class="model-select-list">
+      <!-- 模型列表将通过JavaScript动态生成 -->
+    </ul>
+  </div>
   <div class="container">
     <!-- 侧边栏 -->
     <div class="sidebar">
@@ -399,8 +551,8 @@
         <button id="new-chat-btn" class="button">新对话</button>
       </div>
       <div class="sidebar-content">
-        <ul class="chat-list" id="chatList">
-          <!-- 聊天列表将通过JavaScript动态生成 -->
+        <ul id="chat-list" class="chat-list">
+          <!-- 聊天记录列表 -->
         </ul>
       </div>
       <div class="sidebar-footer">
@@ -479,7 +631,7 @@
 
   <script>
     // 获取DOM元素
-    const chatList = document.getElementById('chatList');
+    const chatList = document.getElementById('chat-list');
     const chatMessages = document.getElementById('chat-messages');
     const messageInput = document.getElementById('message-input');
     const sendButton = document.getElementById('send-button');
@@ -490,6 +642,11 @@
     const chatTitle = document.getElementById('chat-title');
     const emptyState = document.getElementById('empty-state');
     const chatContainer = document.getElementById('chat-container');
+    
+    // 通知相关元素
+    const notification = document.getElementById('notification');
+    const notificationContent = notification.querySelector('.notification-content');
+    const notificationClose = notification.querySelector('.notification-close');
     
     // 设置相关元素
     const settingsModal = document.getElementById('settings-modal');
@@ -502,12 +659,27 @@
     const addModelBtn = document.getElementById('add-model-btn');
     const modelListContainer = document.getElementById('model-list-container');
     
+    // 模型选择相关元素
+    const modelSelectModal = document.getElementById('model-select-modal');
+    const modelSelectList = document.getElementById('model-select-list');
+    const modelSelectInput = document.getElementById('model-select-input');
+    
     // 当前会话ID
     let currentSessionId = null;
     // 当前会话消息
     let currentMessages = [];
     // 模型配置列表
     let modelConfigs = [];
+    
+    // 更新模型选择按钮文本
+    function updateModelButtonText() {
+      const selectedModelIndex = window.preload.dbUtil.getModelIndex() || 0;
+      if (modelConfigs.length > 0 && selectedModelIndex < modelConfigs.length) {
+        const selectedModel = modelConfigs[selectedModelIndex];
+        modelSelect.value = selectedModelIndex;
+        modelSelect.selectedIndex = selectedModelIndex;
+      }
+    }
     
     // 初始化
     function init() {
@@ -537,6 +709,17 @@
     // 加载模型配置
     function loadModelConfigs() {
       modelConfigs = window.preload.dbUtil.getModelConfig() || [];
+      console.log('加载的模型配置:', modelConfigs); // 添加调试日志
+      
+      // 确保每个模型配置都有必要的字段
+      modelConfigs = modelConfigs.map(config => ({
+        name: config.name || '未命名模型',
+        model: config.model || 'gpt-3.5-turbo',
+        url: config.url || 'https://api.openai.com/v1/chat/completions',
+        key: config.key || '',
+        systemPrompt: config.systemPrompt || '你是一个有用的AI助手，能够回答用户的各种问题。'
+      }));
+      
       updateModelSelect();
       updateModelList();
     }
@@ -664,11 +847,28 @@
       const preview = lastMessage ? `${lastMessage.role === 'user' ? '你: ' : 'AI: '}${lastMessage.content.substring(0, 30)}` : '';
       
       chatItem.innerHTML = `
-        <div class="chat-item-title">${title}</div>
-        <div class="chat-item-preview">${preview}</div>
+        <div class="chat-item-content">
+          <div class="chat-item-title">${title}</div>
+          <div class="chat-item-preview">${preview}</div>
+        </div>
+        <div class="chat-item-delete" title="删除对话">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18"></path>
+            <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+            <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+        </div>
       `;
       
-      chatItem.addEventListener('click', () => {
+      chatItem.addEventListener('click', (e) => {
+        // 如果点击的是删除按钮，不触发加载对话
+        if (e.target.closest('.chat-item-delete')) {
+          e.stopPropagation();
+          deleteChatSession(session.id);
+          return;
+        }
         loadChatSession(session.id);
       });
       
@@ -935,6 +1135,212 @@
       }
     }
     
+    // 删除聊天会话
+    function deleteChatSession(sessionId) {
+      // 从数据库中删除
+      window.preload.dbUtil.deleteChatHistory(sessionId);
+      
+      // 如果删除的是当前会话，清空当前会话
+      if (currentSessionId === sessionId) {
+        currentSessionId = null;
+        currentMessages = [];
+        updateChatUI();
+      }
+      
+      // 重新加载聊天列表
+      loadChatSessions();
+      
+      // 显示删除成功通知
+      showNotification('对话已删除', 'success');
+    }
+    
+    // 显示通知
+    function showNotification(message, type = 'info', duration = 3000) {
+      // 设置通知内容和类型
+      notificationContent.textContent = message;
+      notification.className = `notification ${type}`;
+      
+      // 显示通知
+      notification.classList.add('show');
+      
+      // 设置自动关闭
+      setTimeout(() => {
+        hideNotification();
+      }, duration);
+    }
+    
+    // 隐藏通知
+    function hideNotification() {
+      notification.classList.remove('show');
+    }
+    
+    // 设置通知关闭按钮事件
+    notificationClose.addEventListener('click', hideNotification);
+    
+    // 显示模型选择弹窗
+    function showModelSelectModal() {
+      if (modelConfigs.length === 0) {
+        showNotification('请先添加模型配置', 'warning');
+        return;
+      }
+      
+      // 生成模型列表
+      modelSelectList.innerHTML = '';
+      let activeIndex = parseInt(modelSelect.value) || 0;
+      
+      // 显示所有模型
+      updateModelListItems(modelConfigs, activeIndex);
+      
+      // 显示弹窗
+      modelSelectModal.classList.add('show');
+      
+      // 聚焦到搜索框
+      modelSelectInput.focus();
+      
+      // 监听键盘事件
+      document.addEventListener('keydown', handleModelSelectKeydown);
+    }
+    
+    // 更新模型列表项
+    function updateModelListItems(models, activeIndex = 0) {
+      modelSelectList.innerHTML = '';
+      
+      models.forEach((model, index) => {
+        const item = document.createElement('li');
+        item.className = 'model-select-item';
+        if (index === activeIndex) {
+          item.classList.add('active');
+        }
+        
+        item.innerHTML = `
+          <div class="model-select-name">${model.name}</div>
+          <div class="model-select-shortcut">${index + 1}</div>
+        `;
+        
+        item.addEventListener('click', () => {
+          selectModel(index);
+        });
+        
+        modelSelectList.appendChild(item);
+      });
+    }
+    
+    // 处理模型选择键盘事件
+    function handleModelSelectKeydown(e) {
+      const items = modelSelectList.querySelectorAll('.model-select-item');
+      const activeItem = modelSelectList.querySelector('.model-select-item.active');
+      let activeIndex = Array.from(items).indexOf(activeItem);
+      
+      // 如果正在输入搜索内容，不处理其他按键
+      if (e.target === modelSelectInput) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          if (activeItem) {
+            const index = Array.from(items).indexOf(activeItem);
+            selectModel(index);
+          }
+        }
+        return;
+      }
+      
+      switch (e.key) {
+        case 'Escape':
+          hideModelSelectModal();
+          break;
+          
+        case 'ArrowUp':
+          e.preventDefault();
+          if (activeIndex > 0) {
+            activeItem.classList.remove('active');
+            items[activeIndex - 1].classList.add('active');
+            items[activeIndex - 1].scrollIntoView({ block: 'nearest' });
+          }
+          break;
+          
+        case 'ArrowDown':
+          e.preventDefault();
+          if (activeIndex < items.length - 1) {
+            activeItem.classList.remove('active');
+            items[activeIndex + 1].classList.add('active');
+            items[activeIndex + 1].scrollIntoView({ block: 'nearest' });
+          }
+          break;
+          
+        case 'Enter':
+          e.preventDefault();
+          if (activeItem) {
+            const index = Array.from(items).indexOf(activeItem);
+            selectModel(index);
+          }
+          break;
+          
+        default:
+          // 数字键选择（可选）
+          const number = parseInt(e.key);
+          if (!isNaN(number) && number >= 1 && number <= modelConfigs.length) {
+            selectModel(number - 1);
+          }
+      }
+    }
+    
+    // 搜索模型
+    function searchModels(query) {
+      const filteredModels = modelConfigs.filter(model => 
+        model.name.toLowerCase().includes(query.toLowerCase())
+      );
+      
+      updateModelListItems(filteredModels);
+      
+      // 如果有匹配项，选中第一个
+      if (filteredModels.length > 0) {
+        const firstItem = modelSelectList.querySelector('.model-select-item');
+        if (firstItem) {
+          firstItem.classList.add('active');
+        }
+      }
+    }
+    
+    // 选择模型
+    function selectModel(index) {
+      // 获取当前显示的模型列表
+      const displayedItems = modelSelectList.querySelectorAll('.model-select-item');
+      if (index >= 0 && index < displayedItems.length) {
+        // 获取选中的模型名称
+        const selectedModelName = displayedItems[index].querySelector('.model-select-name').textContent;
+        
+        // 在原始模型配置中找到对应的索引
+        const originalIndex = modelConfigs.findIndex(model => model.name === selectedModelName);
+        
+        if (originalIndex !== -1) {
+          // 更新下拉框的值和显示文本
+          modelSelect.value = originalIndex;
+          modelSelect.selectedIndex = originalIndex;
+          
+          // 更新当前选中的模型配置
+          const selectedModel = modelConfigs[originalIndex];
+          
+          // 保存当前选择的模型索引
+          window.preload.dbUtil.saveModelConfig(modelConfigs);
+          window.preload.dbUtil.saveModelIndex(originalIndex);
+          
+          // 隐藏弹窗
+          hideModelSelectModal();
+          
+          // 显示通知
+          showNotification(`已切换到模型: ${selectedModel.name}`, 'success');
+          
+          // 清空搜索框
+          modelSelectInput.value = '';
+        }
+      }
+    }
+    
+    // 隐藏模型选择弹窗
+    function hideModelSelectModal() {
+      modelSelectModal.classList.remove('show');
+      document.removeEventListener('keydown', handleModelSelectKeydown);
+    }
+    
     // 设置事件监听
     function setupEventListeners() {
       // 发送消息
@@ -976,64 +1382,58 @@
       
       // 添加模型
       addModelBtn.addEventListener('click', addModel);
-    }
-    
-    // 渲染聊天列表
-    function renderChatList() {
-      const chatList = document.getElementById('chatList')
-      const sessions = window.utools.db.allDocs()
-        .filter(doc => doc._id.startsWith('chat_history_'))
-        .map(doc => {
-          const sessionId = doc._id.replace('chat_history_', '')
-          const messages = doc.value
-          return {
-            id: sessionId,
-            title: messages[0]?.content?.slice(0, 20) || '新对话',
-            preview: messages[messages.length - 1]?.content?.slice(0, 30) || '',
-            lastTime: messages[messages.length - 1]?.timestamp || Date.now()
+      
+      // 监听快捷键
+      document.addEventListener('keydown', (e) => {
+        if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 't') {
+          e.preventDefault();
+          showModelSelectModal();
+        }
+      });
+      
+      // 点击弹窗外部关闭
+      modelSelectModal.addEventListener('click', (e) => {
+        if (e.target === modelSelectModal) {
+          hideModelSelectModal();
+        }
+      });
+      
+      // 搜索框输入事件
+      modelSelectInput.addEventListener('input', (e) => {
+        searchModels(e.target.value);
+      });
+      
+      // 搜索框键盘事件
+      modelSelectInput.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const firstItem = modelSelectList.querySelector('.model-select-item');
+          if (firstItem) {
+            firstItem.classList.add('active');
+            firstItem.scrollIntoView({ block: 'nearest' });
           }
-        })
-        .sort((a, b) => b.lastTime - a.lastTime)
-
-      chatList.innerHTML = sessions.map(session => `
-        <li class="chat-item ${currentSessionId === session.id ? 'active' : ''}" data-id="${session.id}">
-          <div class="chat-item-content">
-            <div class="chat-item-title">${session.title}</div>
-            <div class="chat-item-preview">${session.preview}</div>
-          </div>
-          <button class="chat-item-delete" title="删除对话">×</button>
-        </li>
-      `).join('')
-
-      // 添加删除事件监听
-      document.querySelectorAll('.chat-item-delete').forEach(button => {
-        button.addEventListener('click', async (e) => {
-          e.stopPropagation()
-          const chatItem = button.closest('.chat-item')
-          const sessionId = chatItem.dataset.id
-          
-          if (confirm('确定要删除这个对话吗？此操作不可恢复。')) {
-            await window.utools.dbStorage.removeItem(`chat_history_${sessionId}`)
-            if (currentSessionId === sessionId) {
-              currentSessionId = null
-              renderChatMessages([])
-            }
-            renderChatList()
-          }
-        })
-      })
-
-      // 添加点击事件监听
-      document.querySelectorAll('.chat-item').forEach(item => {
-        item.addEventListener('click', () => {
-          const sessionId = item.dataset.id
-          loadChatHistory(sessionId)
-        })
-      })
+        }
+      });
     }
     
     // 初始化应用
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => {
+      // 获取保存的模型配置
+      const savedModelConfigs = window.preload.dbUtil.getModelConfig()
+      if (savedModelConfigs && savedModelConfigs.length > 0) {
+        modelConfigs = savedModelConfigs
+      }
+      
+      // 获取保存的模型索引
+      const savedModelIndex = window.preload.dbUtil.getModelIndex()
+      if (savedModelIndex !== undefined) {
+        currentSessionId = savedModelIndex
+        updateModelButtonText()
+      }
+      
+      // 初始化其他UI元素
+      init()
+    });
   </script>
 </body>
 </html>
