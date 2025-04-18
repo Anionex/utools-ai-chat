@@ -1,0 +1,41 @@
+{
+  "name": "AI聊天助手",
+  "pluginName": "ai-chat",
+  "description": "一个AI聊天助手，支持多轮对话、本地存储聊天记录和自定义模型配置",
+  "version": "0.2.1",
+  "author": "uTools开发者",
+  "logo": "logo.png",
+  "main": "index.html",
+  "preload": "preload.js",
+  "features": [
+    {
+      "code": "ai-chat",
+      "explain": "AI聊天助手",
+      "cmds": ["AI聊天", "AI助手", "聊天机器人", "AI Chat"]
+    },
+    {
+      "code": "ai-translate",
+      "explain": "AI翻译",
+      "cmds": [
+        {
+          "type": "over",
+          "label": "AI翻译",
+          "minLength": 1,
+          "maxLength": 5000
+        }
+      ]
+    },
+    {
+      "code": "ai-explain",
+      "explain": "AI解释",
+      "cmds": [
+        {
+          "type": "over",
+          "label": "AI解释",
+          "minLength": 1,
+          "maxLength": 5000
+        }
+      ]
+    }
+  ]
+}
