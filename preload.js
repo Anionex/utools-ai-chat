@@ -57,63 +57,83 @@ const dbUtil = {
 
 // 处理AI API调用
 const aiUtil = {
+  // 用于存储当前的请求控制器
+  currentController: null,
+
+  // 中断当前的AI响应
+  abortCurrentResponse() {
+    if (this.currentController) {
+      this.currentController.abort();
+      this.currentController = null;
+    }
+  },
+
   // 调用AI API
   async callAI(modelConfig, messages, onProgress) {
+    // 如果有正在进行的请求，先中断它
+    this.abortCurrentResponse();
+
+    // 创建新的 AbortController
+    this.currentController = new AbortController();
+    const signal = this.currentController.signal;
+
     try {
-      const { url, key, model } = modelConfig
-      
-      const response = await fetch(url, {
+      const response = await fetch(modelConfig.url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${key}`
+          'Authorization': `Bearer ${modelConfig.key}`
         },
         body: JSON.stringify({
-          model: model,
+          model: modelConfig.model,
           messages: messages,
-          temperature: 0.7,
           stream: true
-        })
-      })
-      
+        }),
+        signal // 添加signal以支持中断
+      });
+
       if (!response.ok) {
-        throw new Error(`API请求失败: ${response.status}`)
+        const error = await response.json();
+        throw new Error(error.error?.message || '请求失败');
       }
-      
-      const reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let content = ''
-      
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let content = '';
+
       while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
-        
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') continue
-            
-            try {
-              const json = JSON.parse(data)
-              const delta = json.choices[0].delta.content
-              if (delta) {
-                content += delta
-                if (onProgress) onProgress(content)
-              }
-            } catch (e) {
-              console.error('解析数据失败:', e)
+          if (line.trim() === '') continue;
+          if (line.trim() === 'data: [DONE]') continue;
+
+          try {
+            const json = JSON.parse(line.replace(/^data: /, ''));
+            const token = json.choices[0]?.delta?.content || '';
+            if (token) {
+              content += token;
+              onProgress(content);
             }
+          } catch (e) {
+            console.error('解析响应数据失败:', e);
           }
         }
       }
-      
-      return content
+
+      // 清除当前控制器
+      this.currentController = null;
+      return content;
     } catch (error) {
-      console.error('AI API调用失败:', error)
-      return `调用AI服务失败: ${error.message}`
+      // 如果是中断导致的错误，不需要抛出
+      if (error.name === 'AbortError') {
+        return '';
+      }
+      throw error;
     }
   },
   

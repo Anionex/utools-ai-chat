@@ -102,7 +102,7 @@ function updateChatUI() {
 function renderMessages() {
     chatMessages.innerHTML = '';
 
-    currentMessages.forEach(msg => {
+    currentMessages.forEach((msg, index) => {
         const messageEl = document.createElement('div');
         messageEl.className = `message message-${msg.role === 'user' ? 'user' : 'ai'}`;
 
@@ -116,6 +116,21 @@ function renderMessages() {
             messageEl.querySelectorAll('pre code').forEach((block) => {
                 hljs.highlightElement(block);
             });
+
+            // 为所有AI消息添加重试按钮
+            const retryButton = document.createElement('div');
+            retryButton.className = 'message-retry';
+            retryButton.title = '重新发送';
+            retryButton.innerHTML = `
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 2v6h-6"></path>
+                    <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+                    <path d="M3 22v-6h6"></path>
+                    <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+                </svg>
+            `;
+            retryButton.addEventListener('click', () => retryMessage(index));
+            messageEl.appendChild(retryButton);
         } else {
             messageContent.textContent = msg.content;
         }
@@ -134,6 +149,113 @@ function renderMessages() {
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
+// 重试发送消息
+async function retryMessage(messageIndex) {
+    // 获取要重试的消息的前一条用户消息
+    let userMessageIndex = messageIndex - 1;
+    while (userMessageIndex >= 0 && currentMessages[userMessageIndex].role !== 'user') {
+        userMessageIndex--;
+    }
+
+    const userMessage = currentMessages[userMessageIndex];
+    if (!userMessage || userMessage.role !== 'user') {
+        showNotification('无法重试：找不到对应的用户消息', 'error');
+        return;
+    }
+
+    // 移除当前的AI回复
+    currentMessages.splice(messageIndex, 1);
+
+    // 获取选中的模型
+    const selectedModel = modelManager.getCurrentModel();
+    if (!selectedModel) {
+        showNotification('请先添加模型配置', 'warning');
+        return;
+    }
+
+    // 准备发送给AI的消息
+    const aiMessages = [];
+
+    // 添加系统提示词
+    if (selectedModel.systemPrompt) {
+        aiMessages.push({
+            role: 'system',
+            content: selectedModel.systemPrompt
+        });
+    }
+
+    // 添加对话历史（到用户消息为止）
+    for (let i = 0; i <= userMessageIndex; i++) {
+        if (currentMessages[i].role !== 'system') {
+            aiMessages.push({
+                role: currentMessages[i].role,
+                content: currentMessages[i].content
+            });
+        }
+    }
+
+    try {
+        // 添加新的AI回复占位
+        const aiMessage = {
+            role: 'assistant',
+            content: '',
+            timestamp: Date.now()
+        };
+
+        currentMessages.push(aiMessage);
+        renderMessages();
+
+        // 更新重试按钮状态
+        const retryButton = document.querySelector('.message-retry');
+        if (retryButton) {
+            retryButton.classList.add('spin');
+        }
+
+        // 更新发送按钮状态为停止状态
+        updateSendButtonState(true);
+
+        // 调用AI API并处理流式输出
+        await window.preload.aiUtil.callAI(selectedModel, aiMessages, (content) => {
+            aiMessage.content = content;
+            renderMessages();
+        });
+
+        // 恢复发送按钮状态
+        updateSendButtonState(false);
+
+        // 保存到数据库
+        window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
+
+        // 更新聊天列表
+        loadChatSessions();
+    } catch (error) {
+        console.error('重试发送消息失败:', error);
+
+        // 恢复发送按钮状态
+        updateSendButtonState(false);
+
+        // 移除失败的消息
+        currentMessages.pop();
+
+        // 添加错误消息
+        const errorMessage = {
+            role: 'assistant',
+            content: `发生错误: ${error.message}`,
+            timestamp: Date.now()
+        };
+
+        currentMessages.push(errorMessage);
+
+        // 更新UI
+        renderMessages();
+
+        // 保存到数据库
+        window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
+
+        // 显示错误通知
+        showNotification(error.message, 'error');
+    }
+}
 
 // 创建新会话
 function createNewChat() {
@@ -159,7 +281,6 @@ function createNewChat() {
     messageInput.focus();
 }
 
-
 // 删除聊天会话
 function deleteChatSession(sessionId) {
     // 从数据库中删除
@@ -179,9 +300,49 @@ function deleteChatSession(sessionId) {
     showNotification('对话已删除', 'success');
 }
 
+// 更新发送按钮状态
+function updateSendButtonState(isGenerating = false) {
+    const button = document.getElementById('send-button');
+    const icon = button.querySelector('.icon');
+    
+    if (isGenerating) {
+        button.classList.add('stop');
+        button.disabled = false; // 确保按钮可以点击
+        // 修改为停止图标（实心圆）
+        icon.innerHTML = `
+            <circle cx="12" cy="12" r="8" fill="currentColor"/>
+        `;
+        // 添加点击事件处理
+        button.onclick = () => {
+            window.preload.aiUtil.abortCurrentResponse();
+            updateSendButtonState(false);
+        };
+    } else {
+        button.classList.remove('stop');
+        // 根据输入框是否为空来设置禁用状态
+        button.disabled = messageInput.value.trim() === '';
+        // 恢复发送图标
+        icon.innerHTML = `
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        `;
+        // 恢复原始点击事件
+        button.onclick = sendMessage;
+    }
+}
 
 // 发送消息
 async function sendMessage() {
+    const button = document.getElementById('send-button');
+    const isGenerating = button.classList.contains('stop');
+
+    // 如果正在生成，则中断
+    if (isGenerating) {
+        window.preload.aiUtil.abortCurrentResponse();
+        updateSendButtonState(false);
+        return;
+    }
+
     const message = messageInput.value.trim();
     if (!message) return;
 
@@ -248,11 +409,17 @@ async function sendMessage() {
         currentMessages.push(aiMessage);
         renderMessages();
 
+        // 更新按钮状态为停止
+        updateSendButtonState(true);
+
         // 调用AI API并处理流式输出
         await window.preload.aiUtil.callAI(selectedModel, aiMessages, (content) => {
             aiMessage.content = content;
             renderMessages();
         });
+
+        // 恢复按钮状态
+        updateSendButtonState(false);
 
         // 保存到数据库
         window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
@@ -261,6 +428,9 @@ async function sendMessage() {
         loadChatSessions();
     } catch (error) {
         console.error('发送消息失败:', error);
+
+        // 恢复按钮状态
+        updateSendButtonState(false);
 
         // 移除加载中消息
         currentMessages.pop();
@@ -279,11 +449,11 @@ async function sendMessage() {
 
         // 保存到数据库
         window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
+
+        // 显示错误通知
+        showNotification(error.message, 'error');
     }
 }
-
-
-
 
 // 格式化时间
 function formatTime(timestamp) {
