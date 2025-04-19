@@ -1,5 +1,6 @@
 # Simple uTools AI Chat
-> 若该项目对你有用，欢迎 star & fork！
+![logo](./logo.png)
+> 若该项目对你有用，欢迎 star & fork🌟！
 
 一款专注于聊天功能的较简约的uTools AI 聊天插件，目标是复刻和改进utools官方ai聊天插件的简约utools AI聊天插件，支持添加多个API服务商模型，支持快速更换模型，历史对话，系统提示词设定
 
