@@ -10,7 +10,7 @@ class ModelManager {
     loadModelConfigs() {
         this.modelConfigs = window.preload.dbUtil.getModelConfig() || [];
         this.currentModelIndex = window.preload.dbUtil.getModelIndex() || 0;
-        
+
         // 确保每个模型配置都有必要的字段
         this.modelConfigs = this.modelConfigs.map(config => ({
             name: config.name || '未命名模型',
@@ -24,25 +24,25 @@ class ModelManager {
     // 验证模型配置
     validateModelConfig(config) {
         const errors = [];
-        
+
         if (!config.name || config.name.trim() === '') {
             errors.push('模型名称不能为空');
         }
-        
+
         if (!config.model || config.model.trim() === '') {
             errors.push('模型ID不能为空');
         }
-        
+
         if (!config.url || config.url.trim() === '') {
             errors.push('API地址不能为空');
         } else if (!this.isValidUrl(config.url)) {
             errors.push('API地址格式不正确');
         }
-        
+
         if (!config.key || config.key.trim() === '') {
             errors.push('API密钥不能为空');
         }
-        
+
         return {
             isValid: errors.length === 0,
             errors
@@ -129,17 +129,17 @@ function addModel() {
         key: apiKey.value.trim(),
         systemPrompt: systemPrompt.value.trim()
     };
-    
+
     try {
         modelManager.addModel(config);
-        
+
         // 更新UI
         updateModelSelect();
         updateModelList();
-        
+
         // 清空表单
         resetModelForm();
-        
+
         // 显示成功通知
         showNotification('模型已添加', 'success');
     } catch (error) {
@@ -153,11 +153,11 @@ function deleteModel(index) {
         if (confirmed) {
             try {
                 modelManager.deleteModel(index);
-                
+
                 // 更新UI
                 updateModelSelect();
                 updateModelList();
-                
+
                 // 显示成功通知
                 showNotification('模型已删除', 'success');
             } catch (error) {
@@ -176,17 +176,17 @@ function updateModel(index) {
         key: apiKey.value.trim(),
         systemPrompt: systemPrompt.value.trim()
     };
-    
+
     try {
         modelManager.updateModel(index, config);
-        
+
         // 更新UI
         updateModelSelect();
         updateModelList();
-        
+
         // 重置表单和按钮
         resetModelForm();
-        
+
         // 显示成功通知
         showNotification('模型已更新', 'success');
     } catch (error) {
@@ -194,24 +194,3 @@ function updateModel(index) {
     }
 }
 
-// 编辑模型
-function editModel(index) {
-    const config = modelManager.getAllModels()[index];
-    if (!config) {
-        showNotification('模型配置不存在', 'error');
-        return;
-    }
-    
-    // 保存当前编辑的模型索引
-    addModelBtn.dataset.editIndex = index;
-    
-    // 填充表单
-    modelName.value = config.name || '';
-    modelId.value = config.model || '';
-    apiUrl.value = config.url || '';
-    apiKey.value = config.key || '';
-    systemPrompt.value = config.systemPrompt || '';
-    
-    // 修改添加按钮的文本
-    addModelBtn.textContent = '更新模型';
-}

@@ -49,21 +49,21 @@ const modelManager = new ModelManager();
 
 // 初始化
 function init() {
-    // 加载聊天记录
-    loadChatSessions();
-    // 设置事件监听
-    setupEventListeners();
-    // 配置Markdown渲染器
-    configureMarkdown();
-    // 更新模型选择
-    updateModelSelect();
-    updateModelList();
-    
-    // 每次启动时创建新对话
-    createNewChat();
-    
-    // 聚焦到输入框
-    messageInput.focus();
+  // 加载聊天记录
+  loadChatSessions();
+  // 设置事件监听
+  setupEventListeners();
+  // 配置Markdown渲染器
+  configureMarkdown();
+  // 更新模型选择
+  updateModelSelect();
+  updateModelList();
+
+  // 每次启动时创建新对话
+  createNewChat();
+
+  // 聚焦到输入框
+  messageInput.focus();
 }
 
 
@@ -74,14 +74,14 @@ document.addEventListener('DOMContentLoaded', () => {
   if (savedModelConfigs && savedModelConfigs.length > 0) {
     modelManager.modelConfigs = savedModelConfigs
   }
-  
+
   // 获取保存的模型索引
   const savedModelIndex = window.preload.dbUtil.getModelIndex()
   if (savedModelIndex !== undefined) {
     currentSessionId = savedModelIndex
     updateModelButtonText()
   }
-  
+
   // 初始化其他UI元素
   init()
 });
