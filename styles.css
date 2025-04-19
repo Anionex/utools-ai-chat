@@ -391,7 +391,7 @@ kbd {
   margin: 0 4px;
 }
 .markdown-content pre {
-  background-color: #f0f0f0;
+  background-color: #1e1e1e;
   padding: 10px;
   border-radius: 4px;
   overflow-x: auto;
@@ -441,7 +441,7 @@ kbd {
 }
 /* 暗色主题代码高亮 */
 .hljs {
-  background: #282c34;
+  background: #1e1e1e;
   color: #abb2bf;
   border-radius: 4px;
 }
