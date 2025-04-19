@@ -124,11 +124,7 @@ function renderMessages() {
         // 使用Markdown渲染AI消息
         if (msg.role === 'assistant') {
             messageContent.className = 'markdown-content';
-            messageContent.innerHTML = marked.parse(msg.content);
-            // 高亮代码块
-            messageEl.querySelectorAll('pre code').forEach((block) => {
-                hljs.highlightElement(block);
-            });
+            messageContent.innerHTML = marked.parse(msg.content); 
 
             // 为AI消息添加重试按钮
             const retryButton = document.createElement('div');
@@ -152,7 +148,8 @@ function renderMessages() {
         const messageTime = document.createElement('div');
         messageTime.className = 'message-time';
         messageTime.textContent = formatTime(msg.timestamp);
-
+        //white-space: pre-wrap
+        messageContent.style.whiteSpace = 'pre-wrap';
         messageEl.appendChild(messageContent);
         messageEl.appendChild(messageTime);
         
@@ -754,7 +751,7 @@ function updateSystemPrompt() {
     renderMessages();
     
     // 保存到数据库
-    window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages, Date.now());
+    // window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages, Date.now());
 }
 
 // 在模型切换时同步更新UI和会话状态
