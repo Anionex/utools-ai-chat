@@ -28,7 +28,7 @@ function addChatItemToList(session, placeOnTop = true) {
     }
 
     const lastMessage = session.messages[session.messages.length - 1];
-    const title = session.messages[1]?.content.substring(0, 20) || '新对话';
+    const title = session.messages[1]?.content.substring(0, 35) || '新对话';
     const preview = lastMessage ? `${lastMessage.role === 'user' ? '你: ' : 'AI: '}${lastMessage.content.substring(0, 30)}` : '';
 
     chatItem.innerHTML = `
@@ -99,9 +99,9 @@ function updateChatUI() {
     // 更新标题
     if (currentMessages.length > 0) {
         if (currentMessages[1] == null) {
-            chatTitle.textContent = currentMessages[0].content.substring(0, 20);
+            chatTitle.textContent = currentMessages[0].content.substring(0, 35);
         } else {
-            chatTitle.textContent = currentMessages[1].content.substring(0, 20);
+            chatTitle.textContent = currentMessages[1].content.substring(0, 35);
         }
     } else {
         chatTitle.textContent = '新对话';
