@@ -141,6 +141,57 @@ function renderMessages() {
 
         messageEl.appendChild(messageContent);
         messageEl.appendChild(messageTime);
+        
+        // 添加消息操作按钮容器
+        const messageActions = document.createElement('div');
+        messageActions.className = 'message-actions';
+        
+        // 添加复制按钮
+        const copyButton = document.createElement('div');
+        copyButton.className = 'message-action message-copy';
+        copyButton.title = '复制消息';
+        copyButton.innerHTML = `
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+            </svg>
+        `;
+        copyButton.addEventListener('click', () => copyMessage(msg.content));
+        
+        // 添加编辑按钮
+        const editButton = document.createElement('div');
+        editButton.className = 'message-action message-edit';
+        editButton.title = '编辑消息';
+        editButton.innerHTML = `
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+        `;
+        editButton.addEventListener('click', () => editMessage(index));
+        
+        // 添加删除按钮
+        const deleteButton = document.createElement('div');
+        deleteButton.className = 'message-action message-delete';
+        deleteButton.title = '删除消息';
+        deleteButton.innerHTML = `
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18"></path>
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+            </svg>
+        `;
+        deleteButton.addEventListener('click', () => deleteMessage(index));
+        
+        // 将按钮添加到操作容器
+        messageActions.appendChild(copyButton);
+        messageActions.appendChild(editButton);
+        messageActions.appendChild(deleteButton);
+        
+        // 将操作容器添加到消息元素
+        messageEl.appendChild(messageActions);
 
         chatMessages.appendChild(messageEl);
     });
@@ -459,4 +510,168 @@ async function sendMessage() {
 function formatTime(timestamp) {
     const date = new Date(timestamp);
     return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+}
+
+// 删除消息
+function deleteMessage(messageIndex) {
+    if (messageIndex < 0 || messageIndex >= currentMessages.length) {
+        showNotification('无效的消息索引', 'error');
+        return;
+    }
+
+    // 显示确认对话框
+    showConfirm('确定要删除这条消息吗？', (confirmed) => {
+        if (!confirmed) return;
+        
+        // 删除该消息
+        currentMessages.splice(messageIndex, 1);
+        
+        // 如果删除后没有消息了，可以选择删除整个会话
+        if (currentMessages.length === 0) {
+            showConfirm('会话中没有消息了，是否删除整个会话？', (confirmed) => {
+                if (confirmed) {
+                    deleteChatSession(currentSessionId);
+                }
+            });
+            return;
+        }
+        
+        // 更新UI
+        renderMessages();
+        
+        // 保存到数据库
+        window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
+        
+        // 更新聊天列表
+        loadChatSessions();
+        
+        // 显示成功通知
+        showNotification('消息已删除', 'success');
+    });
+}
+
+// 编辑消息
+function editMessage(messageIndex) {
+    if (messageIndex < 0 || messageIndex >= currentMessages.length) {
+        showNotification('无效的消息索引', 'error');
+        return;
+    }
+    
+    const message = currentMessages[messageIndex];
+    
+    // 创建编辑区域
+    const modal = document.createElement('div');
+    modal.className = 'edit-message-modal';
+    modal.innerHTML = `
+        <div class="edit-message-container">
+            <div class="edit-message-header">
+                <h3>编辑${message.role === 'user' ? '用户' : 'AI'}消息</h3>
+                <button class="close-btn">&times;</button>
+            </div>
+            <textarea class="edit-message-textarea">${message.content}</textarea>
+            <div class="edit-message-actions">
+                <button class="cancel-btn">取消</button>
+                <button class="save-btn">保存</button>
+            </div>
+        </div>
+    `;
+    
+    // 添加到文档
+    document.body.appendChild(modal);
+    
+    // 设置焦点到文本区域
+    const textarea = modal.querySelector('.edit-message-textarea');
+    textarea.focus();
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+    
+    // 关闭按钮事件
+    const closeBtn = modal.querySelector('.close-btn');
+    closeBtn.addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+    
+    // 取消按钮事件
+    const cancelBtn = modal.querySelector('.cancel-btn');
+    cancelBtn.addEventListener('click', () => {
+        document.body.removeChild(modal);
+    });
+    
+    // 保存按钮事件
+    const saveBtn = modal.querySelector('.save-btn');
+    saveBtn.addEventListener('click', () => {
+        const newContent = textarea.value.trim();
+        
+        if (newContent === '') {
+            showNotification('消息内容不能为空', 'warning');
+            return;
+        }
+        
+        // 更新消息内容
+        message.content = newContent;
+        
+        // 移除模态框
+        document.body.removeChild(modal);
+        
+        // 更新UI
+        renderMessages();
+        
+        // 保存到数据库
+        window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
+        
+        // 更新聊天列表
+        loadChatSessions();
+        
+        // 显示成功通知
+        showNotification('消息已更新', 'success');
+        
+        // 如果编辑的是用户消息，并且下一条是AI消息，可以选择是否重新生成AI回复
+        if (message.role === 'user' && messageIndex + 1 < currentMessages.length && currentMessages[messageIndex + 1].role === 'assistant') {
+            showConfirm('是否需要根据修改后的消息重新生成AI回复？', (confirmed) => {
+                if (confirmed) {
+                    retryMessage(messageIndex + 1);
+                }
+            });
+        }
+    });
+    
+    // ESC键关闭
+    modal.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            document.body.removeChild(modal);
+        }
+    });
+}
+
+// 复制消息内容
+function copyMessage(content) {
+    // 使用clipboard API复制文本
+    navigator.clipboard.writeText(content)
+        .then(() => {
+            showNotification('已复制到剪贴板', 'success');
+        })
+        .catch(err => {
+            console.error('复制失败:', err);
+            
+            // 如果clipboard API不可用，使用传统方法
+            const textarea = document.createElement('textarea');
+            textarea.value = content;
+            textarea.style.position = 'fixed';  // 防止影响页面布局
+            textarea.style.opacity = 0;
+            document.body.appendChild(textarea);
+            textarea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showNotification('已复制到剪贴板', 'success');
+                } else {
+                    showNotification('复制失败', 'error');
+                }
+            } catch (err) {
+                console.error('复制失败:', err);
+                showNotification('复制失败', 'error');
+            }
+            
+            document.body.removeChild(textarea);
+        });
 }
