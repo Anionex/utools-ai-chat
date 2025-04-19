@@ -36,6 +36,18 @@
           "maxLength": 5000
         }
       ]
+    },
+    {
+      "code": "ask-ai",
+      "explain": "问AI",
+      "cmds": [
+        {
+          "type": "over",
+          "label": "问AI",
+          "minLength": 1,
+          "maxLength": 5000
+        }
+      ]
     }
   ]
 }

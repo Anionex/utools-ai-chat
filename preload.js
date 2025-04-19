@@ -185,6 +185,13 @@ const commandManager = {
         name: 'AI解释',
         description: 'AI解释文本内容',
         systemPrompt: "你是一个专业的解释助手。请用简洁清晰的语言解释用户提供的内容。解释应该易于理解，同时保持准确性。如果内容涉及专业术语，请提供通俗的解释。根据内容的语言，使用相同的语言回复。"
+      },
+      {
+        id: 'ask-ai',
+        code: 'ask-ai',
+        name: '问AI',
+        description: '问AI',
+        systemPrompt: "You are a helpful assistant. "
       }
     ];
   },
