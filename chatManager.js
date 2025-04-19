@@ -8,13 +8,17 @@ function loadChatSessions() {
         return;
     }
 
+    // 按时间戳倒序排序，最新的对话排在最上面
+    sessions.sort((a, b) => b.lastTime - a.lastTime);
+
+    // 按排序顺序添加到列表（最新的在前面）
     sessions.forEach(session => {
-        addChatItemToList(session);
+        addChatItemToList(session, false); // 不需要置顶，已经排序
     });
 }
 
 // 添加聊天项到列表
-function addChatItemToList(session) {
+function addChatItemToList(session, placeOnTop = true) {
     const chatItem = document.createElement('li');
     chatItem.className = 'chat-item';
     chatItem.dataset.id = session.id;
@@ -53,7 +57,12 @@ function addChatItemToList(session) {
         loadChatSession(session.id);
     });
 
-    chatList.appendChild(chatItem);
+    // 决定是添加到顶部还是按顺序添加
+    if (placeOnTop && chatList.firstChild) {
+        chatList.insertBefore(chatItem, chatList.firstChild);
+    } else {
+        chatList.appendChild(chatItem);
+    }
 }
 
 // 加载聊天会话
@@ -274,8 +283,11 @@ async function retryMessage(messageIndex) {
         // 恢复发送按钮状态
         updateSendButtonState(false);
 
+        // 更新最后修改时间
+        const currentTime = Date.now();
+
         // 保存到数据库
-        window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
+        window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages, currentTime);
 
         // 更新聊天列表
         loadChatSessions();
@@ -300,12 +312,40 @@ async function retryMessage(messageIndex) {
         // 更新UI
         renderMessages();
 
-        // 保存到数据库
-        window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
+        // 保存到数据库，记录最后修改时间
+        const currentTime = Date.now();
+        window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages, currentTime);
 
         // 显示错误通知
         showNotification(error.message, 'error');
     }
+}
+
+// 清理空对话
+function cleanEmptySessions() {
+    const sessions = window.preload.dbUtil.getAllSessions();
+    
+    // 找出消息为空的会话
+    const emptySessions = sessions.filter(session => !session.messages || session.messages.length === 0);
+    
+    // 删除空会话
+    emptySessions.forEach(session => {
+        window.preload.dbUtil.deleteChatHistory(session.id);
+    });
+    
+    // 如果当前会话是空会话，清空当前会话
+    if (currentSessionId && emptySessions.some(session => session.id === currentSessionId)) {
+        currentSessionId = null;
+        currentMessages = [];
+        updateChatUI();
+    }
+    
+    // 如果删除了会话，重新加载聊天列表
+    if (emptySessions.length > 0) {
+        loadChatSessions();
+    }
+    
+    return emptySessions.length;
 }
 
 // 创建新会话
@@ -316,17 +356,18 @@ function createNewChat() {
     // 更新UI
     updateChatUI();
 
-    // 添加到列表
+    // 创建会话对象
     const session = {
         id: currentSessionId,
         messages: currentMessages,
         lastTime: Date.now()
     };
 
+    // 添加到列表顶部
     addChatItemToList(session);
 
-    // 保存到数据库
-    window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
+    // 不立即保存空对话到数据库，只有在发送消息后才保存
+    // window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
 
     // 聚焦到输入框
     messageInput.focus();
@@ -415,8 +456,11 @@ async function sendMessage() {
     messageInput.value = '';
     renderMessages();
 
+    // 更新会话最后修改时间
+    const currentTime = Date.now();
+    
     // 保存到数据库
-    window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
+    window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages, currentTime);
 
     // 更新聊天列表
     loadChatSessions();
@@ -473,7 +517,7 @@ async function sendMessage() {
         updateSendButtonState(false);
 
         // 保存到数据库
-        window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
+        window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages, currentTime);
 
         // 更新聊天列表
         loadChatSessions();
@@ -499,7 +543,7 @@ async function sendMessage() {
         renderMessages();
 
         // 保存到数据库
-        window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
+        window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages, currentTime);
 
         // 显示错误通知
         showNotification(error.message, 'error');
@@ -539,8 +583,9 @@ function deleteMessage(messageIndex) {
         // 更新UI
         renderMessages();
         
-        // 保存到数据库
-        window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
+        // 保存到数据库，记录最后修改时间
+        const currentTime = Date.now();
+        window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages, currentTime);
         
         // 更新聊天列表
         loadChatSessions();
@@ -615,8 +660,9 @@ function editMessage(messageIndex) {
         // 更新UI
         renderMessages();
         
-        // 保存到数据库
-        window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages);
+        // 保存到数据库，记录最后修改时间
+        const currentTime = Date.now();
+        window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages, currentTime);
         
         // 更新聊天列表
         loadChatSessions();

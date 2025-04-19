@@ -4,54 +4,73 @@ const { clipboard } = require('electron')
 // 数据库操作相关函数
 const dbUtil = {
   // 保存聊天记录
-  saveChatHistory(sessionId, messages) {
-    return window.utools.dbStorage.setItem(`chat_history_${sessionId}`, messages)
+  saveChatHistory(sessionId, messages, lastTime) {
+    // 如果提供了最后更新时间，保存会话元数据
+    if (lastTime) {
+      window.utools.dbStorage.setItem(`chat_meta_${sessionId}`, { lastTime });
+    }
+    return window.utools.dbStorage.setItem(`chat_history_${sessionId}`, messages);
   },
   
   // 获取聊天记录
   getChatHistory(sessionId) {
-    return window.utools.dbStorage.getItem(`chat_history_${sessionId}`)
+    return window.utools.dbStorage.getItem(`chat_history_${sessionId}`);
   },
   
   // 删除聊天记录
   deleteChatHistory(sessionId) {
-    return window.utools.dbStorage.removeItem(`chat_history_${sessionId}`)
+    // 同时删除元数据
+    window.utools.dbStorage.removeItem(`chat_meta_${sessionId}`);
+    return window.utools.dbStorage.removeItem(`chat_history_${sessionId}`);
   },
   
   // 获取所有聊天会话
   getAllSessions() {
     // 使用正则表达式匹配所有聊天记录的key
-    const allDocs = window.utools.db.allDocs()
-    return allDocs.filter(doc => doc._id.startsWith('chat_history_'))
+    const allDocs = window.utools.db.allDocs();
+    const sessions = allDocs.filter(doc => doc._id.startsWith('chat_history_'))
       .map(doc => {
-        const sessionId = doc._id.replace('chat_history_', '')
+        const sessionId = doc._id.replace('chat_history_', '');
+        const messages = doc.value;
+        
+        // 尝试获取会话元数据
+        const metaKey = `chat_meta_${sessionId}`;
+        const meta = window.utools.dbStorage.getItem(metaKey);
+        
+        // 如果有消息并且有最后一条消息的时间戳，使用它；否则使用元数据中的时间戳；如果都没有则使用当前时间
+        const lastTime = messages && messages.length > 0 ? 
+          (messages[messages.length - 1]?.timestamp || Date.now()) : 
+          (meta?.lastTime || Date.now());
+        
         return {
           id: sessionId,
-          messages: doc.value,
-          lastTime: doc.value[doc.value.length - 1]?.timestamp || Date.now()
-        }
-      })
-      .sort((a, b) => b.lastTime - a.lastTime)
+          messages: messages,
+          lastTime: lastTime
+        };
+      });
+    
+    // 过滤掉空消息的会话
+    return sessions.filter(session => session.messages && session.messages.length > 0);
   },
   
   // 保存模型配置
   saveModelConfig(config) {
-    return window.utools.dbStorage.setItem('model_config', config)
+    return window.utools.dbStorage.setItem('model_config', config);
   },
   
   // 获取模型配置
   getModelConfig() {
-    return window.utools.dbStorage.getItem('model_config') || []
+    return window.utools.dbStorage.getItem('model_config') || [];
   },
 
   // 保存当前选择的模型索引
   saveModelIndex(index) {
-    return window.utools.dbStorage.setItem('model_index', index)
+    return window.utools.dbStorage.setItem('model_index', index);
   },
 
   // 获取当前选择的模型索引
   getModelIndex() {
-    return window.utools.dbStorage.getItem('model_index') || 0
+    return window.utools.dbStorage.getItem('model_index') || 0;
   }
 }
 
