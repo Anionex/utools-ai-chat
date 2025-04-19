@@ -53,6 +53,50 @@ function setupEventListeners() {
       addModel();
     }
   });
+  
+  // 添加指令按钮事件监听
+  addCommandBtn.addEventListener('click', () => {
+    if (addCommandBtn.textContent === '更新指令') {
+      // 获取编辑ID
+      const editId = addCommandBtn.dataset.editId;
+      if (editId) {
+        // 获取表单数据
+        const name = document.getElementById('command-name').value.trim();
+        const code = document.getElementById('command-code').value.trim();
+        const description = document.getElementById('command-description').value.trim();
+        const systemPrompt = document.getElementById('command-prompt').value.trim();
+        
+        // 验证输入
+        if (!name || !code || !systemPrompt) {
+          showNotification('请填写所有必填字段', 'error');
+          return;
+        }
+        
+        // 创建命令对象
+        const command = {
+          code: code,
+          name: name,
+          description: description || name,
+          systemPrompt: systemPrompt
+        };
+        
+        try {
+          // 更新命令
+          commandManager.updateCommand(editId, command);
+          
+          // 重置表单
+          resetCommandForm();
+          
+          // 显示成功通知
+          showNotification('指令已更新', 'success');
+        } catch (error) {
+          showNotification(error.message, 'error');
+        }
+      }
+    } else {
+      addCommand();
+    }
+  });
 
   // 监听模型选择下拉框变化
   modelSelect.addEventListener('change', () => {
@@ -61,6 +105,23 @@ function setupEventListeners() {
       modelManager.setCurrentModel(selectedIndex);
       syncModelState();
     }
+  });
+  
+  // 设置标签页切换
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      // 移除所有标签页的active类
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      // 移除所有标签内容的active类
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      
+      // 给当前标签页添加active类
+      tab.classList.add('active');
+      
+      // 激活对应的内容
+      const tabId = tab.dataset.tab;
+      document.getElementById(`${tabId}-tab`).classList.add('active');
+    });
   });
 
   // 监听全局快捷键

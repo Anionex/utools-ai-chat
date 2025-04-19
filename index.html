@@ -41,7 +41,7 @@
         </ul>
       </div>
       <div class="sidebar-footer">
-        <button id="settings-btn" class="button button-secondary">模型设置</button>
+        <button id="settings-btn" class="button button-secondary">设置</button>
         <div class="dropdown">
           <button id="help-btn" class="button button-secondary">帮助</button>
           <div class="dropdown-menu">
@@ -96,35 +96,76 @@
   <div id="settings-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">模型设置</h3>
+        <h3 class="modal-title">设置</h3>
         <button class="close-button" id="close-settings">&times;</button>
       </div>
-      <div class="form-group">
-        <label for="model-name">模型名称</label>
-        <input type="text" id="model-name" placeholder="例如: GPT-3.5">
+      
+      <!-- 添加标签页选择器 -->
+      <div class="tabs">
+        <div class="tab active" data-tab="models">模型设置</div>
+        <div class="tab" data-tab="commands">指令设置</div>
       </div>
-      <div class="form-group">
-        <label for="model-id">模型ID</label>
-        <input type="text" id="model-id" placeholder="例如: gpt-3.5-turbo">
-      </div>
-      <div class="form-group">
-        <label for="api-url">API地址</label>
-        <input type="text" id="api-url" placeholder="例如: https://api.openai.com/v1/chat/completions">
-      </div>
-      <div class="form-group">
-        <label for="api-key">API密钥</label>
-        <input type="password" id="api-key" placeholder="输入您的API密钥">
-      </div>
-      <div class="form-group">
-        <label for="system-prompt">系统提示词</label>
-        <textarea id="system-prompt" placeholder="输入系统提示词，定义AI助手的行为和特性"></textarea>
-      </div>
-      <button id="add-model-btn" class="button">添加模型</button>
+      
+      <!-- 模型设置标签页 -->
+      <div class="tab-content active" id="models-tab">
+        <div class="form-group">
+          <label for="model-name">模型名称</label>
+          <input type="text" id="model-name" placeholder="例如: GPT-3.5">
+        </div>
+        <div class="form-group">
+          <label for="model-id">模型ID</label>
+          <input type="text" id="model-id" placeholder="例如: gpt-3.5-turbo">
+        </div>
+        <div class="form-group">
+          <label for="api-url">API地址</label>
+          <input type="text" id="api-url" placeholder="例如: https://api.openai.com/v1/chat/completions">
+        </div>
+        <div class="form-group">
+          <label for="api-key">API密钥</label>
+          <input type="password" id="api-key" placeholder="输入您的API密钥">
+        </div>
+        <div class="form-group">
+          <label for="system-prompt">系统提示词</label>
+          <textarea id="system-prompt" placeholder="输入系统提示词，定义AI助手的行为和特性"></textarea>
+        </div>
+        <button id="add-model-btn" class="button">添加模型</button>
 
-      <div class="model-list">
-        <h4>已添加的模型</h4>
-        <div id="model-list-container">
-          <!-- 模型列表 -->
+        <div class="model-list">
+          <h4>已添加的模型</h4>
+          <div id="model-list-container">
+            <!-- 模型列表 -->
+          </div>
+        </div>
+      </div>
+      
+      <!-- 指令设置标签页 -->
+      <div class="tab-content" id="commands-tab">
+        <div class="form-group">
+          <label for="command-name">指令名称</label>
+          <input type="text" id="command-name" placeholder="例如: AI总结">
+        </div>
+        <div class="form-group">
+          <label for="command-code">指令代码</label>
+          <input type="text" id="command-code" placeholder="例如: ai-summary">
+        </div>
+        <div class="form-group">
+          <label for="command-description">指令描述</label>
+          <input type="text" id="command-description" placeholder="例如: AI总结文本内容">
+        </div>
+        <div class="form-group">
+          <label for="command-prompt">系统提示词</label>
+          <textarea id="command-prompt" placeholder="输入系统提示词，定义AI指令的行为"></textarea>
+        </div>
+        <div class="form-help">
+          <p>创建指令后，可以通过选中文本并呼出uTools使用您的自定义指令</p>
+        </div>
+        <button id="add-command-btn" class="button">添加指令</button>
+
+        <div class="command-list">
+          <h4>自定义指令列表</h4>
+          <div id="command-list-container">
+            <!-- 指令列表 -->
+          </div>
         </div>
       </div>
     </div>
@@ -195,6 +236,7 @@
   <script src="uiUtils.js"></script>
   <script src="chatManager.js"></script>
   <script src="notificationManager.js"></script>
+  <script src="commandManager.js"></script>
   <script src="eventHandlers.js"></script>
   <script src="index.js"></script>
 </body>

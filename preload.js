@@ -71,6 +71,16 @@ const dbUtil = {
   // 获取当前选择的模型索引
   getModelIndex() {
     return window.utools.dbStorage.getItem('model_index') || 0;
+  },
+
+  // 保存用户自定义指令
+  saveCustomCommands(commands) {
+    return window.utools.dbStorage.setItem('custom_commands', commands);
+  },
+
+  // 获取用户自定义指令
+  getCustomCommands() {
+    return window.utools.dbStorage.getItem('custom_commands') || [];
   }
 }
 
@@ -157,10 +167,166 @@ const aiUtil = {
   }
 }
 
+// 命令管理器
+const commandManager = {
+  // 获取内置指令
+  getBuiltinCommands() {
+    return [
+      {
+        id: 'ai-translate',
+        code: 'ai-translate',
+        name: 'AI翻译',
+        description: 'AI翻译文本',
+        systemPrompt: "你是一个专业的翻译助手。请将用户输入的文本翻译成最适合的语言。如果内容是中文，请翻译成英文；如果是其他语言，请翻译成中文。请确保翻译准确、自然、符合目标语言的表达习惯。只返回翻译后的内容，不需要解释或添加其他信息。"
+      },
+      {
+        id: 'ai-explain',
+        code: 'ai-explain',
+        name: 'AI解释',
+        description: 'AI解释文本内容',
+        systemPrompt: "你是一个专业的解释助手。请用简洁清晰的语言解释用户提供的内容。解释应该易于理解，同时保持准确性。如果内容涉及专业术语，请提供通俗的解释。根据内容的语言，使用相同的语言回复。"
+      }
+    ];
+  },
+  
+  // 获取所有命令（包括内置和自定义）
+  getAllCommands() {
+    const builtinCommands = this.getBuiltinCommands();
+    const customCommands = dbUtil.getCustomCommands();
+    return [...builtinCommands, ...customCommands];
+  },
+  
+  // 获取特定命令
+  getCommand(code) {
+    return this.getAllCommands().find(cmd => cmd.code === code);
+  },
+  
+  // 添加自定义命令
+  addCustomCommand(command) {
+    const customCommands = dbUtil.getCustomCommands();
+    
+    // 检查命令是否已存在
+    const existingIndex = customCommands.findIndex(cmd => cmd.code === command.code);
+    
+    if (existingIndex >= 0) {
+      // 更新已存在的命令
+      customCommands[existingIndex] = command;
+    } else {
+      // 添加新命令
+      customCommands.push(command);
+    }
+    
+    // 保存更新后的命令列表
+    dbUtil.saveCustomCommands(customCommands);
+    
+    // 更新uTools动态功能
+    this.updateDynamicFeatures();
+    
+    return command;
+  },
+  
+  // 删除自定义命令
+  removeCustomCommand(code) {
+    const customCommands = dbUtil.getCustomCommands();
+    const updatedCommands = customCommands.filter(cmd => cmd.code !== code);
+    
+    // 保存更新后的命令列表
+    dbUtil.saveCustomCommands(updatedCommands);
+    
+    // 从uTools中移除该功能
+    window.utools.removeFeature(code);
+    
+    return updatedCommands;
+  },
+  
+  // 更新uTools动态功能
+  updateDynamicFeatures() {
+    const customCommands = dbUtil.getCustomCommands();
+    
+    // 遍历自定义命令，更新uTools功能
+    customCommands.forEach(command => {
+      // 定义uTools功能
+      const feature = {
+        code: command.code,
+        explain: command.description || command.name,
+        cmds: [
+          {
+            type: "over",
+            label: command.name,
+            minLength: 1,
+            maxLength: 5000
+          }
+        ]
+      };
+      
+      // 设置功能
+      window.utools.setFeature(feature);
+    });
+  },
+  
+  // 处理命令
+  handleCommand(code, payload) {
+    const command = this.getCommand(code);
+    
+    if (!command) {
+      return false;
+    }
+    
+    // 创建一个唯一的会话ID
+    const sessionId = `${code}_${Date.now()}`;
+    
+    // 获取系统提示词
+    const systemPrompt = command.systemPrompt;
+    
+    // 构建消息数组
+    const messages = [
+      {
+        role: 'system',
+        content: systemPrompt,
+        timestamp: Date.now()
+      },
+      {
+        role: 'user',
+        content: payload,
+        timestamp: Date.now()
+      }
+    ];
+    
+    // 保存会话
+    dbUtil.saveChatHistory(sessionId, messages);
+    
+    // 获取当前模型配置
+    const modelConfigs = dbUtil.getModelConfig();
+    const currentModelIndex = dbUtil.getModelIndex();
+    const currentModel = modelConfigs[currentModelIndex] || modelConfigs[0];
+    
+    // 触发事件，由前端处理会话
+    setTimeout(() => {
+      document.dispatchEvent(new CustomEvent('ai-feature-triggered', { 
+        detail: { 
+          sessionId: sessionId,
+          modelConfig: currentModel,
+          systemPrompt: systemPrompt,
+          userMessage: payload
+        }
+      }));
+    }, 100);
+    
+    return true;
+  }
+};
+
 // 导出工具函数供前端使用
 window.preload = {
   dbUtil,
-  aiUtil
+  aiUtil,
+  commandManager
+}
+
+// 初始化动态功能
+function initDynamicFeatures() {
+  // 更新动态功能
+  commandManager.updateDynamicFeatures();
 }
 
 // 添加插件进入事件监听
@@ -173,86 +339,20 @@ window.utools.onPluginEnter(({ code, type, payload }) => {
     window.utools.showNotification('请先配置AI模型');
     return;
   }
-  modelManager.setCurrentModel(dbUtil.getModelIndex());
-  // 获取当前选择的模型
-  const currentModelIndex = dbUtil.getModelIndex();
-  const currentModel = modelConfigs[currentModelIndex] || modelConfigs[0];
-
-  // 处理AI翻译功能
-  if (code === 'ai-translate' && type === 'over' && payload) {
-    // 创建一个唯一的会话ID
-    const sessionId = 'translate_' + Date.now();
-    
-    // 创建翻译提示词
-    const systemPrompt = "你是一个专业的翻译助手。请将用户输入的文本翻译成最适合的语言。如果内容是中文，请翻译成英文；如果是其他语言，请翻译成中文。请确保翻译准确、自然、符合目标语言的表达习惯。只返回翻译后的内容，不需要解释或添加其他信息。";
-    
-    // 构建消息数组
-    const messages = [
-      {
-        role: 'system',
-        content: systemPrompt,
-        timestamp: Date.now()
-      },
-      {
-        role: 'user',
-        content: payload,
-        timestamp: Date.now()
-      }
-    ];
-    
-    // 保存会话
-    dbUtil.saveChatHistory(sessionId, messages);
-    
-    // 立即调用AI获取回复
-    setTimeout(() => {
-      // 触发一个自定义事件，让前端处理这个新会话
-      document.dispatchEvent(new CustomEvent('ai-feature-triggered', { 
-        detail: { 
-          sessionId: sessionId,
-          modelConfig: currentModel,
-          systemPrompt: systemPrompt,
-          userMessage: payload
-        }
-      }));
-    }, 100);
+  
+  // 处理模型选择
+  try {
+    modelManager.setCurrentModel(dbUtil.getModelIndex());
+  } catch(e) {
+    console.error('模型选择错误:', e);
   }
   
-  // 处理AI解释功能
-  if (code === 'ai-explain' && type === 'over' && payload) {
-    // 创建一个唯一的会话ID
-    const sessionId = 'explain_' + Date.now();
-    
-    // 创建解释提示词
-    const systemPrompt = "你是一个专业的解释助手。请用简洁清晰的语言解释用户提供的内容。解释应该易于理解，同时保持准确性。如果内容涉及专业术语，请提供通俗的解释。根据内容的语言，使用相同的语言回复。";
-    
-    // 构建消息数组
-    const messages = [
-      {
-        role: 'system',
-        content: systemPrompt,
-        timestamp: Date.now()
-      },
-      {
-        role: 'user',
-        content: payload,
-        timestamp: Date.now()
-      }
-    ];
-    
-    // 保存会话
-    dbUtil.saveChatHistory(sessionId, messages);
-    
-    // 立即调用AI获取回复
-    setTimeout(() => {
-      // 触发一个自定义事件，让前端处理这个新会话
-      document.dispatchEvent(new CustomEvent('ai-feature-triggered', { 
-        detail: { 
-          sessionId: sessionId,
-          modelConfig: currentModel,
-          systemPrompt: systemPrompt,
-          userMessage: payload
-        }
-      }));
-    }, 100);
+  // 处理文本指令
+  if (type === 'over' && payload) {
+    // 使用通用命令处理逻辑
+    commandManager.handleCommand(code, payload);
   }
 });
+
+// 在插件加载时初始化动态功能
+initDynamicFeatures();

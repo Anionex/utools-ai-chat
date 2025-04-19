@@ -27,6 +27,14 @@ const systemPrompt = document.getElementById('system-prompt');
 const addModelBtn = document.getElementById('add-model-btn');
 const modelListContainer = document.getElementById('model-list-container');
 
+// 命令相关元素
+const addCommandBtn = document.getElementById('add-command-btn');
+const commandName = document.getElementById('command-name');
+const commandCode = document.getElementById('command-code');
+const commandDescription = document.getElementById('command-description');
+const commandPrompt = document.getElementById('command-prompt');
+const commandListContainer = document.getElementById('command-list-container');
+
 // 模型选择相关元素
 const modelSelectModal = document.getElementById('model-select-modal');
 const modelSelectList = document.getElementById('model-select-list');
