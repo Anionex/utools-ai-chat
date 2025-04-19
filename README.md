@@ -1,5 +1,7 @@
 # Simple uTools AI Chat
-![logo](./logo.png)
+<p align="center">
+    <img src="./logo.png" width="300" height="300" />
+</p>
 > 若该项目对你有用，欢迎 star & fork🌟！
 
 一款专注于聊天功能的较简约的uTools AI 聊天插件，目标是复刻和改进utools官方ai聊天插件的简约utools AI聊天插件，支持添加多个API服务商模型，支持快速更换模型，历史对话，系统提示词设定
@@ -11,7 +13,9 @@ uTools ai在旧版utools已经无法使用， 更新的utools中限制了免费�
 
 
 ## 核心功能
-![主页面](./assets/home_page.png)
+<p align="center">
+    <img src="./assets/home_page.png" width="750" height="550" />
+</p>
 
 ### 快捷键
 - `Ctrl + N`: 新建对话
@@ -21,8 +25,9 @@ uTools ai在旧版utools已经无法使用， 更新的utools中限制了免费�
 - `Shift + Enter`: 换行
 
 ### 模型管理
-
-![模型管理](./assets/model_manage.png)
+<p align="center">
+    <img src="./assets/model_manage.png" width="700" height="550" />
+</p>
 
 - 支持添加多个不同的 AI 模型配置
 - 兼容所有 OpenAI API 格式的模型服务
@@ -30,8 +35,9 @@ uTools ai在旧版utools已经无法使用， 更新的utools中限制了免费�
 - 系统提示词自定义
 
 ### 聊天历史记录管理
-
-![聊天界面](./assets/chat_page.png)
+<p align="center">
+    <img src="./assets/chat_page.png" width="700" height="550" />
+</p>
 
 - 本地保存所有聊天记录
 - 随时继续之前的对话
@@ -54,12 +60,16 @@ uTools ai在旧版utools已经无法使用， 更新的utools中限制了免费�
 
 ### 预置指令和自定义快捷指令
 可以在utools呼出栏输入使用或者在选择文本后在超级面板使用快捷指令。
-![动态指令](./assets/dynamic_features.png)
+<p align="center">
+    <img src="./assets/dynamic_features.png" width="550" height="550" />
+</p>
 
 预制指令：
 1. **AI翻译**：自动识别文本语言，中文翻译为英文，其他语言翻译为中文
-![翻译指令](./assets/translate.png)
-2. **AI解释**：解释所选文本内容，提供通俗易懂的说明
+<p align="center">
+    <img src="./assets/translate.png" width="700" height="550" />
+</p>
+3. **AI解释**：解释所选文本内容，提供通俗易懂的说明
 
 
 可以添加自己的指令，比如润色文段，扩写文段等等。
