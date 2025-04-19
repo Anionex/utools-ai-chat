@@ -118,13 +118,19 @@ function renderMessages() {
     currentMessages.forEach((msg, index) => {
         const messageEl = document.createElement('div');
         messageEl.className = `message message-${msg.role === 'user' ? 'user' : msg.role === 'system' ? 'system' : 'ai'}`;
-        console.log(currentMessages);
+        // console.log(currentMessages);
         const messageContent = document.createElement('div');
 
         // 使用Markdown渲染AI消息
         if (msg.role === 'assistant') {
             messageContent.className = 'markdown-content';
-            messageContent.innerHTML = marked.parse(msg.content); 
+            // 配置marked选项,使用highlight.js实现代码高亮
+            marked.setOptions({
+                highlight: function(code, lang) {
+                    return hljs.highlightAuto(code).value;
+                }
+            });
+            messageContent.innerHTML = marked.parse(msg.content);
 
             // 为AI消息添加重试按钮
             const retryButton = document.createElement('div');

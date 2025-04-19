@@ -154,6 +154,8 @@ body {
   color: #333;
   border-bottom-left-radius: 5px;
   padding-bottom: 30px;
+  padding-left: 30px;
+  padding-right: 30px;
 }
 .message-time {
   font-size: 10px;
@@ -388,24 +390,6 @@ kbd {
   box-shadow: 0 1px 1px rgba(0,0,0,0.1);
   margin: 0 4px;
 }
-.markdown-content {
-  width: 100%;
-  max-width: 100%;
-  line-height: 1.6;
-}
-/* Markdown样式 */
-.markdown-content h1, .markdown-content h2, .markdown-content h3, 
-.markdown-content h4, .markdown-content h5, .markdown-content h6 {
-  margin-top: 1em;
-  margin-bottom: 0.5em;
-}
-.markdown-content p {
-  margin-bottom: 1em;
-}
-.markdown-content ul, .markdown-content ol {
-  margin-bottom: 1em;
-  padding-left: 2em;
-}
 .markdown-content pre {
   background-color: #f0f0f0;
   padding: 10px;
@@ -446,6 +430,14 @@ kbd {
 .markdown-content img {
   max-width: 100%;
   height: auto;
+}
+
+.markdown-contente ul,
+.markdown-content li {
+  margin-top: -5px !important;
+  margin-bottom: -5px !important;
+  padding-top: -5px !important;
+  padding-bottom: -5px !important;
 }
 /* 暗色主题代码高亮 */
 .hljs {
