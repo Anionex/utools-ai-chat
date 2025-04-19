@@ -111,6 +111,8 @@ class ModelManager {
             throw new Error('模型索引无效');
         }
         this.currentModelIndex = index;
+        console.log('设置当前选中的模型:' + this.currentModelIndex);
+        syncModelState();
         window.preload.dbUtil.saveModelIndex(index);
     }
 
@@ -136,6 +138,7 @@ function addModel() {
         // 更新UI
         updateModelSelect();
         updateModelList();
+        syncModelState();
 
         // 清空表单
         resetModelForm();
@@ -157,6 +160,7 @@ function deleteModel(index) {
                 // 更新UI
                 updateModelSelect();
                 updateModelList();
+                syncModelState();
 
                 // 显示成功通知
                 showNotification('模型已删除', 'success');
@@ -183,6 +187,7 @@ function updateModel(index) {
         // 更新UI
         updateModelSelect();
         updateModelList();
+        syncModelState();
 
         // 重置表单和按钮
         resetModelForm();

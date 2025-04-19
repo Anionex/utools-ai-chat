@@ -28,7 +28,7 @@ function addChatItemToList(session, placeOnTop = true) {
     }
 
     const lastMessage = session.messages[session.messages.length - 1];
-    const title = session.messages[0]?.content.substring(0, 20) || '新对话';
+    const title = session.messages[1]?.content.substring(0, 20) || '新对话';
     const preview = lastMessage ? `${lastMessage.role === 'user' ? '你: ' : 'AI: '}${lastMessage.content.substring(0, 30)}` : '';
 
     chatItem.innerHTML = `
@@ -98,7 +98,11 @@ function updateChatUI() {
 
     // 更新标题
     if (currentMessages.length > 0) {
-        chatTitle.textContent = currentMessages[0].content.substring(0, 20);
+        if (currentMessages[1] == null) {
+            chatTitle.textContent = currentMessages[0].content.substring(0, 20);
+        } else {
+            chatTitle.textContent = currentMessages[1].content.substring(0, 20);
+        }
     } else {
         chatTitle.textContent = '新对话';
     }
@@ -113,8 +117,8 @@ function renderMessages() {
 
     currentMessages.forEach((msg, index) => {
         const messageEl = document.createElement('div');
-        messageEl.className = `message message-${msg.role === 'user' ? 'user' : 'ai'}`;
-
+        messageEl.className = `message message-${msg.role === 'user' ? 'user' : msg.role === 'system' ? 'system' : 'ai'}`;
+        console.log(currentMessages);
         const messageContent = document.createElement('div');
 
         // 使用Markdown渲染AI消息
@@ -126,7 +130,7 @@ function renderMessages() {
                 hljs.highlightElement(block);
             });
 
-            // 为所有AI消息添加重试按钮
+            // 为AI消息添加重试按钮
             const retryButton = document.createElement('div');
             retryButton.className = 'message-retry';
             retryButton.title = '重新发送';
@@ -141,6 +145,7 @@ function renderMessages() {
             retryButton.addEventListener('click', () => retryMessage(index));
             messageEl.appendChild(retryButton);
         } else {
+            // 用户消息和系统消息使用相同的显示逻辑
             messageContent.textContent = msg.content;
         }
 
@@ -236,22 +241,12 @@ async function retryMessage(messageIndex) {
     // 准备发送给AI的消息
     const aiMessages = [];
 
-    // 添加系统提示词
-    if (selectedModel.systemPrompt) {
-        aiMessages.push({
-            role: 'system',
-            content: selectedModel.systemPrompt
-        });
-    }
-
     // 添加对话历史（到用户消息为止）
     for (let i = 0; i <= userMessageIndex; i++) {
-        if (currentMessages[i].role !== 'system') {
-            aiMessages.push({
-                role: currentMessages[i].role,
-                content: currentMessages[i].content
-            });
-        }
+        aiMessages.push({
+            role: currentMessages[i].role,
+            content: currentMessages[i].content
+        });
     }
 
     try {
@@ -350,10 +345,21 @@ function cleanEmptySessions() {
 
 // 创建新会话
 function createNewChat() {
+    console.log('创建新会话');
     currentSessionId = Date.now().toString();
     currentMessages = [];
-
+    syncModelState();
+    
+    // 添加系统提示词
+    const selectedModel = modelManager.getCurrentModel();
+    if (selectedModel && selectedModel.systemPrompt) {
+        const systemPrompt = selectedModel.systemPrompt.trim();
+        if (systemPrompt) {
+            currentMessages.push({ role: 'system', content: systemPrompt, timestamp: Date.now() });
+        }
+    }
     // 更新UI
+    console.log('更新UI:' + currentMessages);
     updateChatUI();
 
     // 创建会话对象
@@ -443,6 +449,13 @@ async function sendMessage() {
         createNewChat();
     }
 
+    // 获取选中的模型
+    const selectedModel = modelManager.getCurrentModel();
+    if (!selectedModel) {
+        showNotification('请先添加模型配置', 'warning');
+        return;
+    }
+
     // 添加用户消息
     const userMessage = {
         role: 'user',
@@ -465,32 +478,15 @@ async function sendMessage() {
     // 更新聊天列表
     loadChatSessions();
 
-    // 获取选中的模型
-    const selectedModel = modelManager.getCurrentModel();
-    if (!selectedModel) {
-        showNotification('请先添加模型配置', 'warning');
-        return;
-    }
-
     // 准备发送给AI的消息
     const aiMessages = [];
 
-    // 添加系统提示词
-    if (selectedModel.systemPrompt) {
-        aiMessages.push({
-            role: 'system',
-            content: selectedModel.systemPrompt
-        });
-    }
-
     // 添加对话历史
     currentMessages.forEach(msg => {
-        if (msg.role !== 'system') {
-            aiMessages.push({
-                role: msg.role,
-                content: msg.content
-            });
-        }
+        aiMessages.push({
+            role: msg.role,
+            content: msg.content
+        });
     });
 
     try {
@@ -720,4 +716,64 @@ function copyMessage(content) {
             
             document.body.removeChild(textarea);
         });
+}
+
+// 更新当前会话的系统提示词
+function updateSystemPrompt() {
+    if (!currentSessionId) return;
+    
+    const selectedModel = modelManager.getCurrentModel();
+    if (!selectedModel) return;
+    
+    const systemPrompt = selectedModel.systemPrompt.trim();
+    
+    // 查找是否已有系统消息
+    const systemIndex = currentMessages.findIndex(msg => msg.role === 'system');
+    
+    if (systemPrompt) {
+        // 构建系统消息
+        const systemMessage = {
+            role: 'system',
+            content: systemPrompt,
+            timestamp: Date.now()
+        };
+        
+        if (systemIndex >= 0) {
+            // 更新现有系统消息
+            currentMessages[systemIndex] = systemMessage;
+        } else {
+            // 在消息列表开头添加系统消息
+            currentMessages.unshift(systemMessage);
+        }
+    } else if (systemIndex >= 0) {
+        // 如果没有系统提示词但存在系统消息，则移除它
+        currentMessages.splice(systemIndex, 1);
+    }
+    
+    // 更新UI
+    renderMessages();
+    
+    // 保存到数据库
+    window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages, Date.now());
+}
+
+// 在模型切换时同步更新UI和会话状态
+function syncModelState() {
+    // 获取当前选中的模型
+    const selectedModel = modelManager.getCurrentModel();
+    if (!selectedModel) return;
+    
+    // 更新UI显示
+    const modelNameElement = document.getElementById('model-select');
+    if (modelNameElement) {
+        console.log('syncModelState更新UI显示:' + selectedModel.name);
+        modelNameElement.selectedOptions[0].text = selectedModel.name;
+    }
+    
+    // 如果当前有活动会话且只有一条消息，更新系统提示词
+    if (currentSessionId && currentMessages.length == 1) {
+        updateSystemPrompt();
+    }
+    
+    console.log('模型已同步: ' + selectedModel.name);
 }

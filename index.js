@@ -61,6 +61,9 @@ function init() {
   updateModelSelect();
   updateModelList();
 
+  // 确保模型状态同步
+  syncModelState();
+
   // 每次启动时创建新对话
   createNewChat();
 
@@ -80,7 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 获取保存的模型索引
   const savedModelIndex = window.preload.dbUtil.getModelIndex()
   if (savedModelIndex !== undefined) {
-    currentSessionId = savedModelIndex
+    modelManager.currentModelIndex = savedModelIndex
     updateModelButtonText()
   }
 

@@ -67,6 +67,9 @@ function selectModel(index) {
     // 更新下拉框的值和显示文本
     modelSelect.value = originalIndex;
     modelSelect.selectedIndex = originalIndex;
+    
+    // 同步模型状态
+    syncModelState();
 
     // 隐藏弹窗
     hideModelSelectModal();

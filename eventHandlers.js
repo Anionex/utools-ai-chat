@@ -54,6 +54,15 @@ function setupEventListeners() {
     }
   });
 
+  // 监听模型选择下拉框变化
+  modelSelect.addEventListener('change', () => {
+    const selectedIndex = parseInt(modelSelect.value);
+    if (!isNaN(selectedIndex)) {
+      modelManager.setCurrentModel(selectedIndex);
+      syncModelState();
+    }
+  });
+
   // 监听全局快捷键
   document.addEventListener('keydown', (e) => {
     // Ctrl+Alt+T 打开模型选择器
@@ -100,6 +109,82 @@ function setupEventListeners() {
       }
     }
   });
+  
+  // 监听AI特性触发事件（用于翻译和解释功能）
+  document.addEventListener('ai-feature-triggered', async (e) => {
+    const { sessionId, modelConfig, systemPrompt, userMessage } = e.detail;
+    
+    // 加载这个新会话
+    await loadChatSession(sessionId);
+    
+    // 获取消息数组
+    const aiMessages = [];
+    
+    // 添加系统提示词
+    aiMessages.push({
+      role: 'system',
+      content: systemPrompt
+    });
+    
+    // 添加用户消息
+    aiMessages.push({
+      role: 'user',
+      content: userMessage
+    });
+    
+    try {
+      // 添加AI回复占位
+      const aiMessage = {
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now()
+      };
+      
+      currentMessages.push(aiMessage);
+      renderMessages();
+      
+      // 更新发送按钮状态为停止状态
+      updateSendButtonState(true);
+      
+      // 调用AI API并处理流式输出
+      await window.preload.aiUtil.callAI(modelConfig, aiMessages, (content) => {
+        aiMessage.content = content;
+        renderMessages();
+      });
+      
+      // 恢复发送按钮状态
+      updateSendButtonState(false);
+      
+      // 保存到数据库
+      window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages, Date.now());
+      
+      // 更新聊天列表
+      loadChatSessions();
+    } catch (error) {
+      console.error('AI特性调用失败:', error);
+      
+      // 恢复按钮状态
+      updateSendButtonState(false);
+      
+      // 添加错误消息
+      const errorMessage = {
+        role: 'assistant',
+        content: `发生错误: ${error.message}`,
+        timestamp: Date.now()
+      };
+      
+      currentMessages.push(errorMessage);
+      
+      // 更新UI
+      renderMessages();
+      
+      // 保存到数据库
+      window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages, Date.now());
+      
+      // 显示错误通知
+      showNotification(error.message, 'error');
+    }
+  });
 }
 
 // 切换到下一个模型
@@ -119,6 +204,9 @@ function switchToNextModel() {
     // 更新下拉框的值和显示文本
     modelSelect.value = nextIndex;
     modelSelect.selectedIndex = nextIndex;
+    
+    // 同步模型状态
+    syncModelState();
     
     // 显示通知
     showNotification(`已切换到模型: ${modelManager.getCurrentModel().name}`, 'success');
