@@ -42,15 +42,26 @@
       </div>
       <div class="sidebar-footer">
         <button id="settings-btn" class="button button-secondary">模型设置</button>
+        <div class="dropdown">
+          <button id="help-btn" class="button button-secondary">帮助</button>
+          <div class="dropdown-menu">
+            <div class="dropdown-item" id="shortcuts-menu-item">快捷键</div>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- 主内容区 -->
     <div class="main-content">
       <div id="empty-state" class="empty-state">
-        <div class="empty-state-icon">💬</div>
+        <div class="empty-state-icon">💭</div>
         <div class="empty-state-text">开始一个新的对话，或从左侧选择历史记录</div>
         <button id="start-chat-btn" class="button">开始新对话</button>
+        <div class="shortcut-hints">
+          <div class="shortcut-hint">新建对话: <kbd>Ctrl</kbd> + <kbd>N</kbd></div>
+          <div class="shortcut-hint">切换模型: <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>M</kbd></div>
+          <div class="shortcut-hint">模型选择: <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>T</kbd></div>
+        </div>
       </div>
 
       <div id="chat-container" style="display: none; flex-direction: column; height: 100%;">
@@ -135,6 +146,50 @@
       </div>
     </div>
   </div>
+
+  <!-- 快捷键模态框容器 -->
+  <div id="shortcuts-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="modal-title">快捷键</h3>
+        <button class="close-button" id="close-shortcuts">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="shortcuts-list">
+          <div class="shortcut-item">
+            <div class="shortcut-keys">
+              <kbd>Ctrl</kbd> + <kbd>N</kbd>
+            </div>
+            <div class="shortcut-description">新建对话</div>
+          </div>
+          <div class="shortcut-item">
+            <div class="shortcut-keys">
+              <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>M</kbd>
+            </div>
+            <div class="shortcut-description">切换到下一个模型</div>
+          </div>
+          <div class="shortcut-item">
+            <div class="shortcut-keys">
+              <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>T</kbd>
+            </div>
+            <div class="shortcut-description">打开模型选择器</div>
+          </div>
+          <div class="shortcut-item">
+            <div class="shortcut-keys">
+              <kbd>Enter</kbd>
+            </div>
+            <div class="shortcut-description">发送消息</div>
+          </div>
+          <div class="shortcut-item">
+            <div class="shortcut-keys">
+              <kbd>Shift</kbd> + <kbd>Enter</kbd>
+            </div>
+            <div class="shortcut-description">换行</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div> 
 
   <script src="modelManager.js"></script>
   <script src="uiUtils.js"></script>

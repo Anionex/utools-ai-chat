@@ -53,6 +53,8 @@ function init() {
   loadChatSessions();
   // 设置事件监听
   setupEventListeners();
+  // 设置帮助相关监听
+  setupHelpListeners();
   // 配置Markdown渲染器
   configureMarkdown();
   // 更新模型选择

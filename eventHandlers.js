@@ -54,11 +54,24 @@ function setupEventListeners() {
     }
   });
 
-  // 监听快捷键
+  // 监听全局快捷键
   document.addEventListener('keydown', (e) => {
+    // Ctrl+Alt+T 打开模型选择器
     if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 't') {
       e.preventDefault();
       showModelSelectModal();
+    }
+    
+    // Ctrl+N 新建对话
+    if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'n') {
+      e.preventDefault();
+      createNewChat();
+    }
+    
+    // Ctrl+Shift+M 切换到下一个模型
+    if (e.ctrlKey && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'm') {
+      e.preventDefault();
+      switchToNextModel();
     }
   });
 
@@ -87,6 +100,31 @@ function setupEventListeners() {
       }
     }
   });
+}
+
+// 切换到下一个模型
+function switchToNextModel() {
+  const models = modelManager.getAllModels();
+  if (models.length === 0) {
+    showNotification('请先添加模型配置', 'warning');
+    return;
+  }
+  
+  const currentIndex = modelManager.currentModelIndex;
+  const nextIndex = (currentIndex + 1) % models.length;
+  
+  try {
+    modelManager.setCurrentModel(nextIndex);
+    
+    // 更新下拉框的值和显示文本
+    modelSelect.value = nextIndex;
+    modelSelect.selectedIndex = nextIndex;
+    
+    // 显示通知
+    showNotification(`已切换到模型: ${modelManager.getCurrentModel().name}`, 'success');
+  } catch (error) {
+    showNotification(error.message, 'error');
+  }
 }
 
 // 处理模型选择键盘事件
@@ -144,5 +182,65 @@ function handleModelSelectKeydown(e) {
       if (!isNaN(number) && number >= 1 && number <= modelManager.getAllModels().length) {
         selectModel(number - 1);
       }
+  }
+}
+
+// 设置帮助和快捷键相关事件
+function setupHelpListeners() {
+  const helpBtn = document.getElementById('help-btn');
+  const shortcutsMenuItem = document.getElementById('shortcuts-menu-item');
+  const shortcutsModal = document.getElementById('shortcuts-modal');
+  const closeShortcuts = document.getElementById('close-shortcuts');
+  
+  if (helpBtn) {
+    // 帮助按钮点击
+    helpBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const dropdown = helpBtn.closest('.dropdown');
+      dropdown.classList.toggle('active');
+    });
+  
+    // 点击快捷键菜单项
+    if (shortcutsMenuItem) {
+      shortcutsMenuItem.addEventListener('click', () => {
+        // 隐藏下拉菜单
+        const dropdown = helpBtn.closest('.dropdown');
+        dropdown.classList.remove('active');
+        
+        // 显示快捷键模态框
+        if (shortcutsModal) {
+          shortcutsModal.classList.add('active');
+        }
+      });
+    }
+  
+    // 关闭快捷键模态框
+    if (closeShortcuts && shortcutsModal) {
+      closeShortcuts.addEventListener('click', () => {
+        shortcutsModal.classList.remove('active');
+        // 重新聚焦到输入框
+        messageInput.focus();
+      });
+    }
+  
+    // 点击快捷键模态框外部关闭
+    if (shortcutsModal) {
+      shortcutsModal.addEventListener('click', (e) => {
+        if (e.target === shortcutsModal) {
+          shortcutsModal.classList.remove('active');
+          // 重新聚焦到输入框
+          messageInput.focus();
+        }
+      });
+    }
+  
+    // 点击页面其他区域关闭下拉菜单
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.dropdown')) {
+        document.querySelectorAll('.dropdown').forEach(dropdown => {
+          dropdown.classList.remove('active');
+        });
+      }
+    });
   }
 }
