@@ -108,11 +108,11 @@ function updateChatUI() {
     }
 
     // 更新消息列表
-    renderMessages();
+    renderMessages(true); // 初始加载时滚动到底部
 }
 
 // 渲染消息
-function renderMessages() {
+function renderMessages(shouldScrollToBottom = false) {
     chatMessages.innerHTML = '';
 
     currentMessages.forEach((msg, index) => {
@@ -213,8 +213,10 @@ function renderMessages() {
         chatMessages.appendChild(messageEl);
     });
 
-    // 滚动到底部
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    // 只在需要时滚动到底部
+    if (shouldScrollToBottom) {
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
 }
 
 // 重试发送消息
@@ -261,7 +263,7 @@ async function retryMessage(messageIndex) {
         };
 
         currentMessages.push(aiMessage);
-        renderMessages();
+        renderMessages(false); // 重试时不自动滚动到底部
 
         // 更新重试按钮状态
         const retryButton = document.querySelector('.message-retry');
@@ -275,7 +277,7 @@ async function retryMessage(messageIndex) {
         // 调用AI API并处理流式输出
         await window.preload.aiUtil.callAI(selectedModel, aiMessages, (content) => {
             aiMessage.content = content;
-            renderMessages();
+            renderMessages(false); // AI回复时不自动滚动到底部
         });
 
         // 恢复发送按钮状态
@@ -306,9 +308,7 @@ async function retryMessage(messageIndex) {
         };
 
         currentMessages.push(errorMessage);
-
-        // 更新UI
-        renderMessages();
+        renderMessages(true); // 错误消息时自动滚动到底部
 
         // 保存到数据库，记录最后修改时间
         const currentTime = Date.now();
@@ -470,7 +470,7 @@ async function sendMessage() {
 
     // 更新UI
     messageInput.value = '';
-    renderMessages();
+    renderMessages(true); // 用户发送消息时自动滚动到底部
 
     // 更新会话最后修改时间
     const currentTime = Date.now();
@@ -501,7 +501,7 @@ async function sendMessage() {
         };
 
         currentMessages.push(aiMessage);
-        renderMessages();
+        renderMessages(false); // AI回复时不自动滚动到底部
 
         // 更新按钮状态为停止
         updateSendButtonState(true);
@@ -509,7 +509,7 @@ async function sendMessage() {
         // 调用AI API并处理流式输出
         await window.preload.aiUtil.callAI(selectedModel, aiMessages, (content) => {
             aiMessage.content = content;
-            renderMessages();
+            renderMessages(false); // AI回复时不自动滚动到底部
         });
 
         // 恢复按钮状态
@@ -537,9 +537,7 @@ async function sendMessage() {
         };
 
         currentMessages.push(errorMessage);
-
-        // 更新UI
-        renderMessages();
+        renderMessages(true); // 错误消息时自动滚动到底部
 
         // 保存到数据库
         window.preload.dbUtil.saveChatHistory(currentSessionId, currentMessages, currentTime);
@@ -580,7 +578,7 @@ function deleteMessage(messageIndex) {
         }
         
         // 更新UI
-        renderMessages();
+        renderMessages(true); // 删除消息后自动滚动到底部
         
         // 保存到数据库，记录最后修改时间
         const currentTime = Date.now();
