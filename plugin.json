@@ -2,7 +2,7 @@
   "name": "AI聊天助手",
   "pluginName": "ai-chat",
   "description": "一个AI聊天助手，支持多轮对话、本地存储聊天记录和自定义模型配置",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "author": "uTools开发者",
   "logo": "logo.png",
   "main": "index.html",
@@ -20,7 +20,7 @@
         {
           "type": "over",
           "label": "AI翻译",
-          "minLength": 1,
+          "minLength": 1, 
           "maxLength": 5000
         }
       ]
@@ -51,3 +51,5 @@
     }
   ]
 }
+
+

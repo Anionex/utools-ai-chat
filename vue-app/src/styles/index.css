@@ -1,0 +1,307 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 自定义滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #4d4d4d;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #5d5d5d;
+}
+
+/* Markdown 内容样式 */
+.markdown-content pre {
+  @apply bg-dark-950 p-3 rounded overflow-x-auto mb-4;
+}
+
+.markdown-content code {
+  @apply bg-dark-100 px-1 py-0.5 rounded font-mono text-sm;
+}
+
+.markdown-content pre code {
+  @apply p-0 bg-transparent;
+}
+
+.markdown-content blockquote {
+  @apply border-l-4 border-dark-200 pl-4 ml-0 mb-4 text-dark-500;
+}
+
+.markdown-content table {
+  @apply border-collapse w-full mb-4;
+}
+
+.markdown-content th,
+.markdown-content td {
+  @apply border border-dark-200 p-2;
+}
+
+.markdown-content th {
+  @apply bg-dark-100 text-left;
+}
+
+.markdown-content img {
+  @apply max-w-full h-auto;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  @apply pl-6 mb-4;
+}
+
+.markdown-content li {
+  @apply mb-1;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4 {
+  @apply font-semibold mb-2 mt-4;
+}
+
+.markdown-content h1 {
+  @apply text-2xl;
+}
+
+.markdown-content h2 {
+  @apply text-xl;
+}
+
+.markdown-content h3 {
+  @apply text-lg;
+}
+
+.markdown-content p {
+  @apply mb-3;
+}
+
+/* 代码高亮主题 (Atom One Dark) */
+.hljs {
+  @apply bg-dark-950 text-gray-300 rounded;
+}
+
+.hljs-comment,
+.hljs-quote {
+  @apply text-gray-500 italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-subst {
+  @apply text-purple-400;
+}
+
+.hljs-number,
+.hljs-literal,
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag .hljs-attr {
+  @apply text-orange-400;
+}
+
+.hljs-string,
+.hljs-doctag {
+  @apply text-green-400;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-selector-id {
+  @apply text-yellow-400 font-bold;
+}
+
+.hljs-type,
+.hljs-class .hljs-title {
+  @apply text-yellow-400;
+}
+
+.hljs-tag,
+.hljs-name,
+.hljs-attribute {
+  @apply text-blue-400;
+}
+
+.hljs-regexp,
+.hljs-link {
+  @apply text-cyan-400;
+}
+
+.hljs-symbol,
+.hljs-bullet {
+  @apply text-pink-400;
+}
+
+.hljs-built_in,
+.hljs-builtin-name {
+  @apply text-cyan-400;
+}
+
+.hljs-meta {
+  @apply text-gray-400 font-bold;
+}
+
+.hljs-deletion {
+  @apply bg-red-900/30;
+}
+
+.hljs-addition {
+  @apply bg-green-900/30;
+}
+
+.hljs-emphasis {
+  @apply italic;
+}
+
+.hljs-strong {
+  @apply font-bold;
+}
+
+/* 过渡动画 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-enter-active,
+.slide-leave-active {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.slide-enter-from {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.slide-leave-to {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.scale-enter-active,
+.scale-leave-active {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.scale-enter-from,
+.scale-leave-to {
+  transform: scale(0.95);
+  opacity: 0;
+}
+
+/* 思考过程样式 */
+.thinking-section {
+  @apply relative;
+}
+
+.thinking-header {
+  @apply flex items-center gap-2 cursor-pointer select-none py-2 px-3 rounded-lg;
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.08) 0%, rgba(99, 102, 241, 0.08) 100%);
+  border: 1px solid rgba(168, 85, 247, 0.15);
+}
+
+.thinking-header:hover {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(99, 102, 241, 0.12) 100%);
+  border-color: rgba(168, 85, 247, 0.25);
+}
+
+.thinking-content {
+  @apply text-sm text-gray-600 leading-relaxed;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.thinking-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.thinking-content::-webkit-scrollbar-thumb {
+  background: rgba(168, 85, 247, 0.3);
+  border-radius: 2px;
+}
+
+.thinking-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(168, 85, 247, 0.5);
+}
+
+/* 思考过程中的 Markdown 样式 */
+.thinking-text p {
+  @apply mb-2;
+}
+
+.thinking-text ul,
+.thinking-text ol {
+  @apply pl-4 mb-2;
+}
+
+.thinking-text li {
+  @apply mb-1;
+}
+
+.thinking-text code {
+  background-color: rgba(168, 85, 247, 0.1);
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.25rem;
+  font-size: 0.85em;
+  color: #7c3aed;
+}
+
+.thinking-text pre {
+  background-color: rgba(168, 85, 247, 0.05);
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  border: 1px solid rgba(168, 85, 247, 0.15);
+}
+
+.thinking-text pre code {
+  background-color: transparent;
+  padding: 0;
+  color: inherit;
+}
+
+/* Element Plus X 组件样式覆盖 */
+.el-bubble {
+  @apply rounded-xl;
+}
+
+.el-bubble-list {
+  @apply space-y-2;
+}
+
+/* 旋转动画 */
+.rotate-180 {
+  transform: rotate(180deg);
+}
+
+/* 慢速旋转动画 */
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 2s linear infinite;
+}
+
+

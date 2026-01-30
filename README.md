@@ -17,7 +17,7 @@ uTools ai在旧版utools已经无法使用， 更新的utools中限制了免费�
 
 ## 核心功能
 <p align="center">
-    <img src="./assets/home_page.png" width="750" height="550" />
+    <img src="./screenshots/home_page.png" width="750" height="550" />
 </p>
 
 ### 快捷键
@@ -29,7 +29,7 @@ uTools ai在旧版utools已经无法使用， 更新的utools中限制了免费�
 
 ### 模型管理
 <p align="center">
-    <img src="./assets/model_manage.png" width="700" height="550" />
+    <img src="./screenshots/model_manage.png" width="700" height="550" />
 </p>
 
 - 支持添加多个不同的 AI 模型配置
@@ -39,7 +39,7 @@ uTools ai在旧版utools已经无法使用， 更新的utools中限制了免费�
 
 ### 聊天历史记录管理
 <p align="center">
-    <img src="./assets/chat_page.png" width="700" height="550" />
+    <img src="./screenshots/chat_page.png" width="700" height="550" />
 </p>
 
 - 本地保存所有聊天记录
@@ -64,13 +64,13 @@ uTools ai在旧版utools已经无法使用， 更新的utools中限制了免费�
 ### 预置指令和自定义快捷指令
 可以在utools呼出栏输入使用或者在选择文本后在超级面板使用快捷指令。
 <p align="center">
-    <img src="./assets/dynamic_features.png" width="550" height="550" />
+    <img src="./screenshots/dynamic_features.png" width="550" height="550" />
 </p>
 
 预制指令：
 1. **AI翻译**：自动识别文本语言，中文翻译为英文，其他语言翻译为中文
 <p align="center">
-    <img src="./assets/translate.png" width="700" height="550" />
+    <img src="./screenshots/translate.png" width="700" height="550" />
 </p>
 3. **AI解释**：解释所选文本内容，提供通俗易懂的说明
 
@@ -78,7 +78,7 @@ uTools ai在旧版utools已经无法使用， 更新的utools中限制了免费�
 可以添加自己的指令，比如润色文段，扩写文段等等。
 可以通过以下步骤创建自己的指令：
 
-![指令管理](./assets/feature_manage.png)
+![指令管理](./screenshots/feature_manage.png)
 1. 点击界面左下角的"设置"按钮
 2. 切换到"指令设置"标签页
 3. 填写指令信息：
@@ -89,11 +89,31 @@ uTools ai在旧版utools已经无法使用， 更新的utools中限制了免费�
 4. 点击"添加指令"按钮保存
 
 
+## 项目结构
+
+```
+utools-ai-chat/
+├── vue-app/              # 源代码目录
+│   ├── src/              # Vue 源代码
+│   └── public/           # 静态资源（plugin.json, preload.js, logo.png）
+├── screenshots/          # 项目截图
+└── README.md             # 文档
+
+# 构建后生成（已加入 .gitignore）
+├── assets/               # 构建后的 JS/CSS
+├── index.html            # 入口文件
+├── plugin.json           # 插件配置
+├── preload.js            # preload 脚本
+└── logo.png              # 图标
+```
+
 ## 安装方法
 
-1. 安装 uTools 开发者插件
-2. 新建项目，选择本项目中的 plugin.json
-3. 打开插件即可开始使用
+1. 进入 `vue-app` 目录
+2. 安装依赖：`npm install`
+3. 构建项目：`npm run build`
+4. 构建产物会输出到项目根目录
+5. 在 uTools 开发者工具中新建项目，选择项目根目录的 `plugin.json`
 
 ## 使用技巧
 
@@ -111,8 +131,21 @@ uTools ai在旧版utools已经无法使用， 更新的utools中限制了免费�
 - [ ] 历史聊天记录文字快捷搜索
 - [ ] 更好的消息显示效果
 
-## 技术说明
-使用cursor+少量人工快速roll成，cursorrule文件也一并上传，如有cursor可以快速二次定制（改bug
+## 技术栈
+
+- **Vue 3** + **Composition API** - 前端框架
+- **Vite** - 构建工具
+- **Pinia** - 状态管理
+- **Tailwind CSS** - 原子化 CSS 框架
+- **marked** + **highlight.js** - Markdown 和代码高亮
+
+## 开发
+
+```bash
+cd vue-app
+npm install
+npm run dev      # 开发模式（仅 UI 预览，功能需在 uTools 中测试）
+npm run build    # 构建生产版本
+```
 
 如果你有任何建议或遇到问题，欢迎在 GitHub 上提出 Issue。祝你使用愉快！
-
