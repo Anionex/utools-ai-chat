@@ -2,6 +2,16 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 export const useChatStore = defineStore('chat', () => {
+  // 将消息数组转换为可保存的纯对象（完全序列化，移除响应式代理和临时字段）
+  function toSaveableMessages(messages) {
+    // 使用 JSON.parse(JSON.stringify()) 进行完全深度克隆，确保没有 Vue 响应式代理
+    const plainMessages = JSON.parse(JSON.stringify(messages))
+    // 移除临时的 isThinking 字段
+    return plainMessages.map(msg => {
+      const { isThinking, ...rest } = msg
+      return rest
+    })
+  }
   // 状态
   const sessions = ref([])
   const currentSessionId = ref(null)
@@ -92,8 +102,24 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   // 发送消息
-  async function sendMessage(content, modelConfig, onProgress) {
-    if (!content.trim() || !modelConfig) return
+  // options: { thinkingBudget } - 可选参数，用于控制思考模型的输出长度
+  async function sendMessage(content, modelConfig, onProgress, options = {}) {
+    console.log('chatStore.sendMessage 被调用')
+    console.log('content:', content)
+    console.log('modelConfig:', modelConfig)
+    console.log('options:', options)
+    
+    if (!content.trim() || !modelConfig) {
+      console.log('内容为空或模型配置为空，直接返回')
+      return
+    }
+
+    // 将 modelConfig 转换为纯对象（移除 Vue 响应式代理）
+    const plainModelConfig = JSON.parse(JSON.stringify(modelConfig))
+    console.log('plainModelConfig:', plainModelConfig)
+    
+    // 提取思考深度参数
+    const thinkingBudget = options.thinkingBudget
 
     // 添加用户消息
     const userMessage = {
@@ -106,7 +132,7 @@ export const useChatStore = defineStore('chat', () => {
     // 保存到数据库
     const currentTime = Date.now()
     if (window.preload) {
-      window.preload.dbUtil.saveChatHistory(currentSessionId.value, currentMessages.value, currentTime)
+      window.preload.dbUtil.saveChatHistory(currentSessionId.value, toSaveableMessages(currentMessages.value), currentTime)
     }
 
     // 更新会话列表
@@ -119,61 +145,62 @@ export const useChatStore = defineStore('chat', () => {
     }))
 
     // 添加AI回复占位
-    const aiMessage = {
+    currentMessages.value.push({
       role: 'assistant',
       content: '',
       reasoningContent: '', // 思考过程内容
       isThinking: false, // 当前是否在思考阶段
       timestamp: Date.now()
-    }
-    currentMessages.value.push(aiMessage)
+    })
+    
+    // 获取响应式版本的消息引用（使用数组索引）
+    const aiMessageIndex = currentMessages.value.length - 1
 
     try {
       isGenerating.value = true
 
       // 调用AI API并处理流式输出
       if (window.preload) {
-        await window.preload.aiUtil.callAI(modelConfig, aiMessages, (progress) => {
+        await window.preload.aiUtil.callAI(plainModelConfig, aiMessages, (progress) => {
           // 支持新格式（带思考内容）和旧格式（纯字符串）
           if (typeof progress === 'object') {
-            aiMessage.content = progress.content
-            aiMessage.reasoningContent = progress.reasoningContent
-            aiMessage.isThinking = progress.isThinking
+            currentMessages.value[aiMessageIndex].content = progress.content
+            currentMessages.value[aiMessageIndex].reasoningContent = progress.reasoningContent
+            currentMessages.value[aiMessageIndex].isThinking = progress.isThinking
             if (onProgress) onProgress(progress)
           } else {
             // 兼容旧格式
-            aiMessage.content = progress
+            currentMessages.value[aiMessageIndex].content = progress
             if (onProgress) onProgress({ content: progress, reasoningContent: '', isThinking: false })
           }
-        })
+        }, { maxTokens: thinkingBudget })
       }
 
       // 保存到数据库
       if (window.preload) {
-        window.preload.dbUtil.saveChatHistory(currentSessionId.value, currentMessages.value, currentTime)
+        window.preload.dbUtil.saveChatHistory(currentSessionId.value, toSaveableMessages(currentMessages.value), currentTime)
       }
 
       // 更新会话列表
       updateSessionInList()
       
-      return aiMessage.content
+      return currentMessages.value[aiMessageIndex].content
     } catch (error) {
       // 移除失败的消息
       currentMessages.value.pop()
 
       // 添加错误消息
-      const errorMessage = {
+      currentMessages.value.push({
         role: 'assistant',
         content: `发生错误: ${error.message}`,
         reasoningContent: '',
         isThinking: false,
         timestamp: Date.now()
-      }
-      currentMessages.value.push(errorMessage)
+      })
 
       // 保存到数据库
       if (window.preload) {
-        window.preload.dbUtil.saveChatHistory(currentSessionId.value, currentMessages.value, currentTime)
+        window.preload.dbUtil.saveChatHistory(currentSessionId.value, toSaveableMessages(currentMessages.value), currentTime)
       }
 
       throw error
@@ -183,7 +210,14 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   // 重试发送消息
-  async function retryMessage(messageIndex, modelConfig, onProgress) {
+  // options: { thinkingBudget } - 可选参数，用于控制思考模型的输出长度
+  async function retryMessage(messageIndex, modelConfig, onProgress, options = {}) {
+    // 将 modelConfig 转换为纯对象（移除 Vue 响应式代理）
+    const plainModelConfig = JSON.parse(JSON.stringify(modelConfig))
+    
+    // 提取思考深度参数
+    const thinkingBudget = options.thinkingBudget
+
     // 获取要重试的消息的前一条用户消息
     let userMessageIndex = messageIndex - 1
     while (userMessageIndex >= 0 && currentMessages.value[userMessageIndex].role !== 'user') {
@@ -208,58 +242,59 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     // 添加新的AI回复占位
-    const aiMessage = {
+    currentMessages.value.push({
       role: 'assistant',
       content: '',
       reasoningContent: '', // 思考过程内容
       isThinking: false, // 当前是否在思考阶段
       timestamp: Date.now()
-    }
-    currentMessages.value.push(aiMessage)
+    })
+    
+    // 获取响应式版本的消息引用（使用数组索引）
+    const aiMessageIndex = currentMessages.value.length - 1
 
     try {
       isGenerating.value = true
 
       // 调用AI API并处理流式输出
       if (window.preload) {
-        await window.preload.aiUtil.callAI(modelConfig, aiMessages, (progress) => {
+        await window.preload.aiUtil.callAI(plainModelConfig, aiMessages, (progress) => {
           // 支持新格式（带思考内容）和旧格式（纯字符串）
           if (typeof progress === 'object') {
-            aiMessage.content = progress.content
-            aiMessage.reasoningContent = progress.reasoningContent
-            aiMessage.isThinking = progress.isThinking
+            currentMessages.value[aiMessageIndex].content = progress.content
+            currentMessages.value[aiMessageIndex].reasoningContent = progress.reasoningContent
+            currentMessages.value[aiMessageIndex].isThinking = progress.isThinking
             if (onProgress) onProgress(progress)
           } else {
             // 兼容旧格式
-            aiMessage.content = progress
+            currentMessages.value[aiMessageIndex].content = progress
             if (onProgress) onProgress({ content: progress, reasoningContent: '', isThinking: false })
           }
-        })
+        }, { maxTokens: thinkingBudget })
       }
 
       // 保存到数据库
       const currentTime = Date.now()
       if (window.preload) {
-        window.preload.dbUtil.saveChatHistory(currentSessionId.value, currentMessages.value, currentTime)
+        window.preload.dbUtil.saveChatHistory(currentSessionId.value, toSaveableMessages(currentMessages.value), currentTime)
       }
 
       // 更新会话列表
       loadChatSessions()
       
-      return aiMessage.content
+      return currentMessages.value[aiMessageIndex].content
     } catch (error) {
       // 移除失败的消息
       currentMessages.value.pop()
 
       // 添加错误消息
-      const errorMessage = {
+      currentMessages.value.push({
         role: 'assistant',
         content: `发生错误: ${error.message}`,
         reasoningContent: '',
         isThinking: false,
         timestamp: Date.now()
-      }
-      currentMessages.value.push(errorMessage)
+      })
 
       throw error
     } finally {
@@ -278,7 +313,7 @@ export const useChatStore = defineStore('chat', () => {
     // 保存到数据库
     const currentTime = Date.now()
     if (window.preload) {
-      window.preload.dbUtil.saveChatHistory(currentSessionId.value, currentMessages.value, currentTime)
+      window.preload.dbUtil.saveChatHistory(currentSessionId.value, toSaveableMessages(currentMessages.value), currentTime)
     }
 
     // 更新会话列表
@@ -296,7 +331,7 @@ export const useChatStore = defineStore('chat', () => {
     // 保存到数据库
     const currentTime = Date.now()
     if (window.preload) {
-      window.preload.dbUtil.saveChatHistory(currentSessionId.value, currentMessages.value, currentTime)
+      window.preload.dbUtil.saveChatHistory(currentSessionId.value, toSaveableMessages(currentMessages.value), currentTime)
     }
 
     // 更新会话列表

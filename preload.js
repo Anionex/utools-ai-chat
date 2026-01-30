@@ -81,6 +81,16 @@ const dbUtil = {
   // 获取用户自定义指令
   getCustomCommands() {
     return window.utools.dbStorage.getItem('custom_commands') || []
+  },
+
+  // 保存思考深度设置
+  saveThinkingBudget(budget) {
+    return window.utools.dbStorage.setItem('thinking_budget', budget)
+  },
+
+  // 获取思考深度设置
+  getThinkingBudget() {
+    return window.utools.dbStorage.getItem('thinking_budget') || 32768
   }
 }
 
@@ -99,7 +109,13 @@ const aiUtil = {
 
   // 调用AI API
   // onProgress 回调接收对象: { content, reasoningContent, isThinking }
-  async callAI(modelConfig, messages, onProgress) {
+  // options: { maxTokens } - 可选参数，用于控制思考模型的输出长度
+  async callAI(modelConfig, messages, onProgress, options = {}) {
+    console.log('aiUtil.callAI 被调用')
+    console.log('modelConfig:', modelConfig)
+    console.log('messages:', messages)
+    console.log('options:', options)
+    
     // 如果有正在进行的请求，先中断它
     this.abortCurrentResponse()
 
@@ -107,18 +123,27 @@ const aiUtil = {
     this.currentController = new AbortController()
     const signal = this.currentController.signal
 
+    // 构建请求体
+    const requestBody = {
+      model: modelConfig.model,
+      messages: messages,
+      stream: true
+    }
+    
+    // 如果指定了 maxTokens，添加到请求中（用于思考模型）
+    if (options.maxTokens) {
+      requestBody.max_tokens = options.maxTokens
+    }
+
     try {
+      console.log('开始 fetch 请求到:', modelConfig.url)
       const response = await fetch(modelConfig.url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${modelConfig.key}`
         },
-        body: JSON.stringify({
-          model: modelConfig.model,
-          messages: messages,
-          stream: true
-        }),
+        body: JSON.stringify(requestBody),
         signal // 添加signal以支持中断
       })
 
@@ -133,26 +158,39 @@ const aiUtil = {
       let reasoningContent = '' // 思考过程内容
       let isThinking = false // 当前是否在思考阶段
 
+      console.log('开始读取流式响应...')
+      
       while (true) {
         const { done, value } = await reader.read()
-        if (done) break
+        if (done) {
+          console.log('流式响应读取完成')
+          break
+        }
 
         const chunk = decoder.decode(value)
+        console.log('收到 chunk:', chunk)
         const lines = chunk.split('\n')
 
         for (const line of lines) {
           if (line.trim() === '') continue
-          if (line.trim() === 'data: [DONE]') continue
+          if (line.trim() === 'data: [DONE]') {
+            console.log('收到 [DONE] 信号')
+            continue
+          }
 
           try {
-            const json = JSON.parse(line.replace(/^data: /, ''))
+            const jsonStr = line.replace(/^data: /, '')
+            console.log('解析 JSON:', jsonStr)
+            const json = JSON.parse(jsonStr)
             const delta = json.choices[0]?.delta
+            console.log('delta:', delta)
             
             if (delta) {
               // 处理思考模型的 reasoning_content（DeepSeek-R1 等模型）
               if (delta.reasoning_content) {
                 reasoningContent += delta.reasoning_content
                 isThinking = true
+                console.log('思考内容更新:', reasoningContent.slice(-50))
                 onProgress({
                   content,
                   reasoningContent,
@@ -163,6 +201,7 @@ const aiUtil = {
               // 处理普通内容
               if (delta.content) {
                 content += delta.content
+                console.log('内容更新:', content.slice(-50))
                 // 一旦有 content 输出，说明思考阶段结束
                 if (isThinking) {
                   isThinking = false
@@ -175,10 +214,13 @@ const aiUtil = {
               }
             }
           } catch (e) {
-            console.error('解析响应数据失败:', e)
+            console.error('解析响应数据失败:', e, '原始行:', line)
           }
         }
       }
+      
+      console.log('最终内容长度:', content.length)
+      console.log('最终思考内容长度:', reasoningContent.length)
 
       // 清除当前控制器
       this.currentController = null

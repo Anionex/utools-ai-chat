@@ -5,6 +5,7 @@ export const useModelStore = defineStore('model', () => {
   // 状态
   const modelConfigs = ref([])
   const currentModelIndex = ref(0)
+  const thinkingBudget = ref(32768) // 默认 32K tokens，用于控制思考模型的输出长度
 
   // 计算属性
   const currentModel = computed(() => {
@@ -21,6 +22,12 @@ export const useModelStore = defineStore('model', () => {
     
     modelConfigs.value = window.preload.dbUtil.getModelConfig() || []
     currentModelIndex.value = window.preload.dbUtil.getModelIndex() || 0
+    
+    // 加载思考深度设置
+    const savedBudget = window.preload.dbUtil.getThinkingBudget?.()
+    if (savedBudget) {
+      thinkingBudget.value = savedBudget
+    }
 
     // 确保每个模型配置都有必要的字段
     modelConfigs.value = modelConfigs.value.map(config => ({
@@ -30,6 +37,14 @@ export const useModelStore = defineStore('model', () => {
       key: config.key || '',
       systemPrompt: config.systemPrompt || ''
     }))
+  }
+  
+  // 设置思考深度
+  function setThinkingBudget(budget) {
+    thinkingBudget.value = budget
+    if (window.preload?.dbUtil?.saveThinkingBudget) {
+      window.preload.dbUtil.saveThinkingBudget(budget)
+    }
   }
 
   // 验证模型配置
@@ -138,6 +153,7 @@ export const useModelStore = defineStore('model', () => {
     // 状态
     modelConfigs,
     currentModelIndex,
+    thinkingBudget,
     // 计算属性
     currentModel,
     hasModels,
@@ -148,7 +164,8 @@ export const useModelStore = defineStore('model', () => {
     updateModel,
     deleteModel,
     setCurrentModel,
-    switchToNextModel
+    switchToNextModel,
+    setThinkingBudget
   }
 })
 

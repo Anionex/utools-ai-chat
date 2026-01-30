@@ -1,25 +1,51 @@
 <template>
   <div class="flex-1 flex flex-col max-w-[70%] bg-white">
     <!-- Header -->
-    <div class="p-4 border-b border-gray-200 flex justify-between items-center bg-dark-50">
-      <h2 class="text-lg font-medium text-gray-800 truncate">{{ title }}</h2>
-      <div class="flex items-center gap-2">
-        <span class="text-gray-600">模型:</span>
-        <select 
-          :value="currentModelIndex"
-          @change="$emit('modelChange', Number($event.target.value))"
-          class="px-2 py-1 rounded border border-gray-300 bg-white text-sm focus:outline-none focus:border-primary"
-          :disabled="!hasModels"
-        >
-          <option v-if="!hasModels" value="">请先添加模型</option>
-          <option 
-            v-for="(model, index) in models" 
-            :key="index" 
-            :value="index"
+    <div class="p-4 border-b border-gray-200 flex flex-col gap-3 bg-dark-50">
+      <div class="flex justify-between items-center">
+        <h2 class="text-lg font-medium text-gray-800 truncate">{{ title }}</h2>
+        <div class="flex items-center gap-2">
+          <span class="text-gray-600">模型:</span>
+          <select 
+            :value="currentModelIndex"
+            @change="$emit('modelChange', Number($event.target.value))"
+            class="px-2 py-1 rounded border border-gray-300 bg-white text-sm focus:outline-none focus:border-primary"
+            :disabled="!hasModels"
           >
-            {{ model.name }}
-          </option>
-        </select>
+            <option v-if="!hasModels" value="">请先添加模型</option>
+            <option 
+              v-for="(model, index) in models" 
+              :key="index" 
+              :value="index"
+            >
+              {{ model.name }}
+            </option>
+          </select>
+        </div>
+      </div>
+      
+      <!-- 思考长度控制 -->
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-purple-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          <span class="text-sm text-gray-600 whitespace-nowrap">思考深度:</span>
+        </div>
+        <input 
+          type="range" 
+          :value="thinkingBudget"
+          @input="$emit('thinkingBudgetChange', Number($event.target.value))"
+          min="1024"
+          max="65536"
+          step="1024"
+          class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-500"
+        />
+        <span class="text-sm text-purple-600 font-medium min-w-[60px] text-right">
+          {{ formatTokens(thinkingBudget) }}
+        </span>
       </div>
     </div>
 
@@ -106,6 +132,10 @@ const props = defineProps({
   retryingIndex: {
     type: Number,
     default: -1
+  },
+  thinkingBudget: {
+    type: Number,
+    default: 32768  // 默认 32K tokens
   }
 })
 
@@ -115,8 +145,17 @@ const emit = defineEmits([
   'stop', 
   'editMessage', 
   'deleteMessage', 
-  'retryMessage'
+  'retryMessage',
+  'thinkingBudgetChange'
 ])
+
+// 格式化 token 数量显示
+function formatTokens(tokens) {
+  if (tokens >= 1024) {
+    return Math.round(tokens / 1024) + 'K'
+  }
+  return tokens.toString()
+}
 
 const notification = useNotificationStore()
 

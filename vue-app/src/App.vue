@@ -26,12 +26,14 @@
       :has-models="modelStore.hasModels"
       :is-generating="chatStore.isGenerating"
       :retrying-index="retryingIndex"
+      :thinking-budget="modelStore.thinkingBudget"
       @model-change="handleModelChange"
       @send="handleSend"
       @stop="handleStop"
       @edit-message="handleEditMessage"
       @delete-message="handleDeleteMessage"
       @retry-message="handleRetryMessage"
+      @thinking-budget-change="handleThinkingBudgetChange"
     />
 
     <!-- 通知组件 -->
@@ -171,6 +173,9 @@ function handleGlobalKeydown(e) {
 async function handleFeatureTriggered(detail) {
   const { sessionId, modelConfig, systemPrompt, userMessage } = detail
 
+  // 将 modelConfig 转换为纯对象
+  const plainModelConfig = JSON.parse(JSON.stringify(modelConfig))
+
   // 加载会话
   chatStore.loadChatSession(sessionId)
 
@@ -184,6 +189,8 @@ async function handleFeatureTriggered(detail) {
   const aiMessage = {
     role: 'assistant',
     content: '',
+    reasoningContent: '',
+    isThinking: false,
     timestamp: Date.now()
   }
   chatStore.currentMessages.push(aiMessage)
@@ -193,16 +200,27 @@ async function handleFeatureTriggered(detail) {
 
     // 调用 AI API
     if (window.preload) {
-      await window.preload.aiUtil.callAI(modelConfig, aiMessages, (content) => {
-        aiMessage.content = content
+      await window.preload.aiUtil.callAI(plainModelConfig, aiMessages, (progress) => {
+        // 支持新格式（带思考内容）和旧格式（纯字符串）
+        if (typeof progress === 'object') {
+          aiMessage.content = progress.content
+          aiMessage.reasoningContent = progress.reasoningContent
+          aiMessage.isThinking = progress.isThinking
+        } else {
+          aiMessage.content = progress
+        }
       })
     }
 
-    // 保存
+    // 保存（转换为可序列化的纯对象）
     if (window.preload) {
+      const saveableMessages = JSON.parse(JSON.stringify(chatStore.currentMessages)).map(msg => {
+        const { isThinking, ...rest } = msg
+        return rest
+      })
       window.preload.dbUtil.saveChatHistory(
         chatStore.currentSessionId,
-        chatStore.currentMessages,
+        saveableMessages,
         Date.now()
       )
     }
@@ -213,6 +231,8 @@ async function handleFeatureTriggered(detail) {
     chatStore.currentMessages.push({
       role: 'assistant',
       content: `发生错误: ${error.message}`,
+      reasoningContent: '',
+      isThinking: false,
       timestamp: Date.now()
     })
     notification.error(error.message)
@@ -279,16 +299,30 @@ function handleSwitchNextModel() {
 
 // 发送消息
 async function handleSend(content) {
+  console.log('handleSend 被调用, content:', content)
+  console.log('currentModel:', modelStore.currentModel)
+  console.log('thinkingBudget:', modelStore.thinkingBudget)
+  
   if (!modelStore.currentModel) {
     notification.warning('请先添加模型配置')
     return
   }
 
   try {
-    await chatStore.sendMessage(content, modelStore.currentModel)
+    console.log('开始发送消息...')
+    await chatStore.sendMessage(content, modelStore.currentModel, null, {
+      thinkingBudget: modelStore.thinkingBudget
+    })
+    console.log('消息发送完成')
   } catch (error) {
+    console.error('发送消息错误:', error)
     notification.error(error.message)
   }
+}
+
+// 处理思考深度变化
+function handleThinkingBudgetChange(budget) {
+  modelStore.setThinkingBudget(budget)
 }
 
 // 停止生成
@@ -361,7 +395,9 @@ async function handleRetryMessage(index) {
 
   try {
     retryingIndex.value = index
-    await chatStore.retryMessage(index, modelStore.currentModel)
+    await chatStore.retryMessage(index, modelStore.currentModel, null, {
+      thinkingBudget: modelStore.thinkingBudget
+    })
   } catch (error) {
     notification.error(error.message)
   } finally {
