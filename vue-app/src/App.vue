@@ -186,14 +186,16 @@ async function handleFeatureTriggered(detail) {
   ]
 
   // 添加 AI 回复占位
-  const aiMessage = {
+  chatStore.currentMessages.push({
     role: 'assistant',
     content: '',
     reasoningContent: '',
     isThinking: false,
     timestamp: Date.now()
-  }
-  chatStore.currentMessages.push(aiMessage)
+  })
+
+  // 获取消息索引，用于响应式更新
+  const aiMessageIndex = chatStore.currentMessages.length - 1
 
   try {
     chatStore.isGenerating = true
@@ -202,12 +204,13 @@ async function handleFeatureTriggered(detail) {
     if (window.preload) {
       await window.preload.aiUtil.callAI(plainModelConfig, aiMessages, (progress) => {
         // 支持新格式（带思考内容）和旧格式（纯字符串）
+        // 通过数组索引更新，确保 Vue 响应式系统能够追踪变化
         if (typeof progress === 'object') {
-          aiMessage.content = progress.content
-          aiMessage.reasoningContent = progress.reasoningContent
-          aiMessage.isThinking = progress.isThinking
+          chatStore.currentMessages[aiMessageIndex].content = progress.content
+          chatStore.currentMessages[aiMessageIndex].reasoningContent = progress.reasoningContent
+          chatStore.currentMessages[aiMessageIndex].isThinking = progress.isThinking
         } else {
-          aiMessage.content = progress
+          chatStore.currentMessages[aiMessageIndex].content = progress
         }
       })
     }

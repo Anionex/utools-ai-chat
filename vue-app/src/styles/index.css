@@ -2,10 +2,48 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 自定义滚动条样式 */
+/* CSS 变量 - Obsidian Minimal 风格温暖配色 */
+:root {
+  /* 主色调 - 温暖灰棕 */
+  --color-primary: #78716c;
+  --color-primary-hover: #57534e;
+  --color-primary-light: #a8a29e;
+  
+  /* 背景色 - 温暖米白 */
+  --color-bg-main: #fafafa;
+  --color-bg-secondary: #f5f5f5;
+  --color-bg-sidebar: #1a1a1a;
+  
+  /* 文字色 - 温暖灰度 */
+  --color-text-primary: #262626;
+  --color-text-secondary: #737373;
+  --color-text-muted: #a3a3a3;
+  
+  /* 边框色 */
+  --color-border: #ebebeb;
+  --color-border-light: #f5f5f5;
+  
+  /* 强调色 - 柔和琥珀 */
+  --color-accent: #b45309;
+  
+  --border-radius: 0.5rem;
+  --transition-base: 150ms ease;
+}
+
+/* 模型选择下拉框 - 大气样式 */
+.model-select {
+  font-size: 0.9375rem;
+  letter-spacing: 0.01em;
+}
+.model-select option {
+  padding: 0.5rem 0.75rem;
+  font-weight: 500;
+}
+
+/* Obsidian Minimal 风格滚动条 - 细且低调 */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
@@ -13,12 +51,49 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #4d4d4d;
-  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #5d5d5d;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* 滚动条轨道背景 - 确保透明 */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 历史记录侧边栏 - 深色滚动条，轨道与侧边栏同色 */
+.dark-scrollbar {
+  scrollbar-gutter: stable;
+}
+
+.dark-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  background: #1a1a1a;
+}
+
+.dark-scrollbar::-webkit-scrollbar-track,
+.dark-scrollbar::-webkit-scrollbar-track-piece {
+  background: #1a1a1a;
+  margin: 4px 0;
+  border-radius: 0;
+}
+
+.dark-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  min-height: 40px;
+}
+
+.dark-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.dark-scrollbar::-webkit-scrollbar-corner {
+  background: #1a1a1a;
 }
 
 /* Markdown 内容样式 */
@@ -27,7 +102,7 @@
 }
 
 .markdown-content code {
-  @apply bg-dark-100 px-1 py-0.5 rounded font-mono text-sm;
+  @apply bg-dark-200/80 px-1.5 py-0.5 rounded font-mono text-sm text-dark-700 border border-dark-300/50;
 }
 
 .markdown-content pre code {
@@ -274,15 +349,6 @@
   background-color: transparent;
   padding: 0;
   color: inherit;
-}
-
-/* Element Plus X 组件样式覆盖 */
-.el-bubble {
-  @apply rounded-xl;
-}
-
-.el-bubble-list {
-  @apply space-y-2;
 }
 
 /* 旋转动画 */

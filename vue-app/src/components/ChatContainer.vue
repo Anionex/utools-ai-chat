@@ -1,15 +1,15 @@
 <template>
-  <div class="flex-1 flex flex-col max-w-[70%] bg-white">
+  <div class="flex-1 flex flex-col max-w-[70%] bg-dark-50">
     <!-- Header -->
-    <div class="p-4 border-b border-gray-200 flex flex-col gap-3 bg-dark-50">
+    <div class="p-4 border-b border-dark-200 flex flex-col gap-3 bg-dark-50">
       <div class="flex justify-between items-center">
-        <h2 class="text-lg font-medium text-gray-800 truncate">{{ title }}</h2>
-        <div class="flex items-center gap-2">
-          <span class="text-gray-600">模型:</span>
+        <h2 class="text-lg font-medium text-dark-700 truncate">{{ title }}</h2>
+        <div class="flex items-center gap-3">
+          <Bot :size="18" class="text-dark-500 shrink-0" />
           <select 
             :value="currentModelIndex"
             @change="$emit('modelChange', Number($event.target.value))"
-            class="px-2 py-1 rounded border border-gray-300 bg-white text-sm focus:outline-none focus:border-primary"
+            class="model-select min-w-[180px] px-4 py-2.5 rounded-xl border border-dark-200 bg-white text-dark-700 font-medium shadow-sm hover:border-dark-300 hover:shadow focus:outline-none focus:ring-2 focus:ring-dark-400/30 focus:border-dark-500 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             :disabled="!hasModels"
           >
             <option v-if="!hasModels" value="">请先添加模型</option>
@@ -27,12 +27,8 @@
       <!-- 思考长度控制 -->
       <div class="flex items-center gap-3">
         <div class="flex items-center gap-2">
-          <svg class="w-4 h-4 text-purple-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-          </svg>
-          <span class="text-sm text-gray-600 whitespace-nowrap">思考深度:</span>
+          <Brain :size="16" class="text-dark-500" />
+          <span class="text-sm text-dark-500 whitespace-nowrap">思考深度</span>
         </div>
         <input 
           type="range" 
@@ -41,9 +37,9 @@
           min="1024"
           max="65536"
           step="1024"
-          class="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-500"
+          class="flex-1 h-1.5 bg-dark-200 rounded-lg appearance-none cursor-pointer accent-dark-600"
         />
-        <span class="text-sm text-purple-600 font-medium min-w-[60px] text-right">
+        <span class="text-sm text-dark-600 font-medium min-w-[60px] text-right">
           {{ formatTokens(thinkingBudget) }}
         </span>
       </div>
@@ -67,12 +63,12 @@
     </div>
 
     <!-- Input -->
-    <div class="w-full p-4 border-t border-gray-200 bg-dark-50">
+    <div class="w-full p-4 border-t border-dark-200 bg-dark-50">
       <div class="flex gap-3">
         <textarea
           ref="inputRef"
           v-model="inputValue"
-          class="flex-1 px-4 py-3 border border-gray-300 rounded-3xl outline-none resize-none max-h-[120px] overflow-y-auto bg-white focus:border-primary"
+          class="flex-1 px-4 py-3 border border-dark-200 rounded-2xl outline-none resize-none max-h-[120px] overflow-y-auto bg-white text-dark-700 placeholder-dark-400 focus:border-dark-400 transition-colors"
           placeholder="输入消息..."
           rows="1"
           @keydown.enter.exact.prevent="handleSend"
@@ -81,18 +77,14 @@
         <button
           @click="handleSend"
           :disabled="!canSend && !isGenerating"
-          class="w-11 h-11 rounded-full flex items-center justify-center transition-all"
+          class="w-10 h-10 rounded-full flex items-center justify-center transition-all"
           :class="buttonClasses"
+          :title="isGenerating ? '停止生成' : '发送消息'"
         >
           <!-- 发送图标 -->
-          <svg v-if="!isGenerating" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13"></line>
-            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-          </svg>
+          <Send v-if="!isGenerating" :size="18" />
           <!-- 停止图标 -->
-          <svg v-else class="w-5 h-5" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="8" fill="currentColor" class="animate-pulse-slow text-red-400"/>
-          </svg>
+          <StopCircle v-else :size="20" class="animate-pulse-slow" />
         </button>
       </div>
     </div>
@@ -101,6 +93,7 @@
 
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
+import { Bot, Brain, Send, StopCircle } from 'lucide-vue-next'
 import ChatMessage from './ChatMessage.vue'
 import { useNotificationStore } from '@/stores/notificationStore'
 
@@ -167,12 +160,12 @@ const canSend = computed(() => inputValue.value.trim() !== '')
 
 const buttonClasses = computed(() => {
   if (props.isGenerating) {
-    return 'bg-dark-800 text-white hover:bg-dark-700 cursor-pointer'
+    return 'bg-dark-700 text-dark-200 hover:bg-dark-600 cursor-pointer'
   }
   if (canSend.value) {
-    return 'bg-primary text-white hover:bg-primary-hover cursor-pointer'
+    return 'bg-dark-700 text-dark-100 hover:bg-dark-600 cursor-pointer'
   }
-  return 'bg-gray-300 text-white cursor-not-allowed'
+  return 'bg-dark-200 text-dark-400 cursor-not-allowed'
 })
 
 // 自动滚动到底部

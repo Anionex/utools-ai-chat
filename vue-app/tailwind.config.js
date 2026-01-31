@@ -7,32 +7,41 @@ export default {
   theme: {
     extend: {
       colors: {
-        // 自定义深色主题颜色
+        // Obsidian Minimal 风格 - 温暖灰度
         dark: {
-          50: '#f8f9fa',
-          100: '#f1f1f1',
-          200: '#e0e0e0',
-          300: '#aaa',
-          400: '#999',
-          500: '#666',
-          600: '#555',
-          700: '#4d4d4d',
-          800: '#3d3d3d',
-          900: '#2d2d2d',
-          950: '#1e1e1e'
+          50: '#fafafa',   // 主背景 - 温暖米白
+          100: '#f5f5f5',  // 次级背景
+          200: '#ebebeb',  // 边框/分隔线
+          300: '#d4d4d4',  // 禁用态
+          400: '#a3a3a3',  // 占位符文字
+          500: '#737373',  // 次要文字
+          600: '#525252',  // 正文文字
+          700: '#404040',  // 标题文字
+          800: '#262626',  // 强调文字
+          900: '#1a1a1a',  // 侧边栏深色背景
+          950: '#0a0a0a'   // 最深色
         },
-        // 主题色
+        // 主题色 - 温暖的深褐/琥珀色调
         primary: {
-          DEFAULT: '#666',
-          hover: '#888',
-          light: '#999'
+          DEFAULT: '#78716c', // stone-500 温暖灰棕
+          hover: '#57534e',   // stone-600
+          light: '#a8a29e',   // stone-400
+          50: '#fafaf9',
+          100: '#f5f5f4'
         },
-        success: '#4caf50',
-        error: '#f44336',
-        warning: '#ff9800'
+        // 强调色 - 柔和的琥珀/棕色
+        accent: {
+          DEFAULT: '#b45309', // amber-700
+          light: '#d97706',   // amber-600
+          muted: '#92400e'    // amber-800
+        },
+        success: '#65a30d',   // lime-600 更温暖的绿
+        error: '#dc2626',     // red-600
+        warning: '#ca8a04'    // yellow-600
       },
       fontFamily: {
-        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif']
+        sans: ['Figtree', 'Source Sans 3', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        display: ['DM Sans', 'Figtree', 'sans-serif']
       },
       animation: {
         'pulse-slow': 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',

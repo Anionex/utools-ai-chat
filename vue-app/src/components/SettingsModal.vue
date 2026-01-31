@@ -8,18 +8,20 @@
     <!-- 标签页 -->
     <div class="flex border-b border-gray-200 mb-5">
       <div 
-        class="px-4 py-3 cursor-pointer border-b-2 transition-all"
+        class="px-4 py-3 cursor-pointer border-b-2 transition-all flex items-center gap-2"
         :class="activeTab === 'models' ? 'border-primary text-primary font-medium' : 'border-transparent text-gray-600 hover:bg-gray-50'"
         @click="activeTab = 'models'"
       >
-        模型设置
+        <Bot :size="16" />
+        <span>模型设置</span>
       </div>
       <div 
-        class="px-4 py-3 cursor-pointer border-b-2 transition-all"
+        class="px-4 py-3 cursor-pointer border-b-2 transition-all flex items-center gap-2"
         :class="activeTab === 'commands' ? 'border-primary text-primary font-medium' : 'border-transparent text-gray-600 hover:bg-gray-50'"
         @click="activeTab = 'commands'"
       >
-        指令设置
+        <Terminal :size="16" />
+        <span>指令设置</span>
       </div>
     </div>
 
@@ -75,9 +77,11 @@
 
       <button 
         @click="handleAddOrUpdateModel"
-        class="px-4 py-2 bg-primary text-white rounded hover:bg-primary-hover transition-colors"
+        class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-all hover:scale-105 flex items-center gap-2"
       >
-        {{ editingModelIndex !== null ? '更新模型' : '添加模型' }}
+        <Save v-if="editingModelIndex !== null" :size="16" />
+        <Plus v-else :size="16" />
+        <span>{{ editingModelIndex !== null ? '更新模型' : '添加模型' }}</span>
       </button>
 
       <!-- 模型列表 -->
@@ -89,25 +93,27 @@
         <div 
           v-for="(config, index) in modelStore.modelConfigs" 
           :key="index"
-          class="flex justify-between items-center p-3 border-b border-gray-100 last:border-b-0"
+          class="flex items-center justify-between p-3 border border-gray-200 rounded-lg mb-2 bg-gray-50 hover:bg-gray-100 transition-colors"
         >
-          <div class="flex-1">
-            <div class="font-medium text-gray-800">{{ config.name }}</div>
-            <div class="text-xs text-gray-500">{{ config.url }} ({{ config.model }})</div>
-            <div class="text-xs text-gray-500">系统提示词: {{ config.systemPrompt || '无' }}</div>
+          <div class="flex-1 min-w-0">
+            <div class="font-medium text-gray-800 mb-1">{{ config.name }}</div>
+            <div class="text-xs text-gray-500 truncate">{{ config.url }} ({{ config.model }})</div>
+            <div class="text-xs text-gray-400 truncate">系统提示词: {{ config.systemPrompt || '无' }}</div>
           </div>
-          <div class="flex gap-2">
+          <div class="flex gap-2 ml-3">
             <button 
               @click="handleEditModel(index)"
-              class="px-3 py-1 bg-primary text-white text-sm rounded hover:bg-primary-hover transition-colors"
+              class="p-2 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
+              title="编辑模型"
             >
-              编辑
+              <Pencil :size="16" />
             </button>
             <button 
               @click="handleDeleteModel(index)"
-              class="px-3 py-1 bg-dark-600 text-white text-sm rounded hover:bg-dark-700 transition-colors"
+              class="p-2 text-gray-600 hover:bg-red-100 hover:text-red-500 rounded-lg transition-colors"
+              title="删除模型"
             >
-              删除
+              <Trash2 :size="16" />
             </button>
           </div>
         </div>
@@ -160,9 +166,11 @@
 
       <button 
         @click="handleAddOrUpdateCommand"
-        class="px-4 py-2 bg-primary text-white rounded hover:bg-primary-hover transition-colors"
+        class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-all hover:scale-105 flex items-center gap-2"
       >
-        {{ editingCommandId ? '更新指令' : '添加指令' }}
+        <Save v-if="editingCommandId" :size="16" />
+        <Plus v-else :size="16" />
+        <span>{{ editingCommandId ? '更新指令' : '添加指令' }}</span>
       </button>
 
       <!-- 指令列表 -->
@@ -184,26 +192,17 @@
           <div class="flex gap-2">
             <button 
               @click="handleEditCommand(command)"
-              class="p-2 text-gray-600 hover:bg-gray-200 rounded transition-colors"
+              class="p-2 text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
               title="编辑指令"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-              </svg>
+              <Pencil :size="16" />
             </button>
             <button 
               @click="handleDeleteCommand(command)"
-              class="p-2 text-gray-600 hover:bg-red-100 hover:text-red-500 rounded transition-colors"
+              class="p-2 text-gray-600 hover:bg-red-100 hover:text-red-500 rounded-lg transition-colors"
               title="删除指令"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 6h18"></path>
-                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                <line x1="10" y1="11" x2="10" y2="17"></line>
-                <line x1="14" y1="11" x2="14" y2="17"></line>
-              </svg>
+              <Trash2 :size="16" />
             </button>
           </div>
         </div>
@@ -222,6 +221,7 @@
 
 <script setup>
 import { ref, reactive } from 'vue'
+import { Plus, Save, Pencil, Trash2, Bot, Terminal } from 'lucide-vue-next'
 import BaseModal from './BaseModal.vue'
 import ConfirmModal from './ConfirmModal.vue'
 import { useModelStore } from '@/stores/modelStore'

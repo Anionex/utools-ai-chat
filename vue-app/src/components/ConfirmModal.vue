@@ -10,13 +10,13 @@
     <template #footer>
       <button 
         @click="handleCancel"
-        class="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+        class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all font-medium"
       >
         {{ cancelText }}
       </button>
       <button 
         @click="handleConfirm"
-        class="px-4 py-2 bg-primary text-white rounded hover:bg-primary-hover transition-colors"
+        class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-all font-medium"
       >
         {{ confirmText }}
       </button>

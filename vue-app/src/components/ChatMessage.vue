@@ -9,53 +9,42 @@
       class="thinking-section mb-3"
     >
       <div 
-        class="thinking-header flex items-center gap-2 cursor-pointer select-none py-2 px-3 rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 transition-colors"
+        class="thinking-header flex items-center gap-2 cursor-pointer select-none py-2 px-3 rounded-xl bg-dark-100 hover:bg-dark-200 transition-colors border border-dark-200"
         @click="toggleThinking"
       >
         <!-- 思考图标 -->
         <div class="thinking-icon" :class="{ 'animate-pulse': message.isThinking }">
-          <svg class="w-4 h-4 text-purple-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-            <line x1="12" y1="17" x2="12.01" y2="17"></line>
-          </svg>
+          <Brain :size="16" class="text-dark-500" />
         </div>
         
         <!-- 思考状态标签 -->
-        <span class="text-sm font-medium text-purple-600">
+        <span class="text-sm font-medium text-dark-600">
           {{ message.isThinking ? '正在思考中...' : '思考过程' }}
         </span>
         
         <!-- 思考中动画指示器 -->
         <div v-if="message.isThinking" class="flex gap-1 ml-1">
-          <span class="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style="animation-delay: 0ms"></span>
-          <span class="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style="animation-delay: 150ms"></span>
-          <span class="w-1.5 h-1.5 bg-purple-400 rounded-full animate-bounce" style="animation-delay: 300ms"></span>
+          <span class="w-1.5 h-1.5 bg-dark-400 rounded-full animate-bounce" style="animation-delay: 0ms"></span>
+          <span class="w-1.5 h-1.5 bg-dark-400 rounded-full animate-bounce" style="animation-delay: 150ms"></span>
+          <span class="w-1.5 h-1.5 bg-dark-400 rounded-full animate-bounce" style="animation-delay: 300ms"></span>
         </div>
         
         <!-- 展开/收起图标 -->
-        <svg 
-          class="w-4 h-4 text-purple-400 ml-auto transition-transform duration-200"
+        <ChevronDown 
+          :size="16" 
+          class="text-dark-400 ml-auto transition-transform duration-200"
           :class="{ 'rotate-180': isThinkingExpanded }"
-          viewBox="0 0 24 24" 
-          fill="none" 
-          stroke="currentColor" 
-          stroke-width="2" 
-          stroke-linecap="round" 
-          stroke-linejoin="round"
-        >
-          <polyline points="6 9 12 15 18 9"></polyline>
-        </svg>
+        />
       </div>
       
       <!-- 思考内容 -->
       <transition name="thinking-expand">
         <div 
           v-show="isThinkingExpanded"
-          class="thinking-content mt-2 pl-4 border-l-2 border-purple-200"
+          class="thinking-content mt-2 pl-4 rounded-r-xl border-l-2 border-dark-200"
         >
           <div 
-            class="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap markdown-content thinking-text"
+            class="text-sm text-dark-600 leading-relaxed whitespace-pre-wrap markdown-content thinking-text"
             v-html="renderedThinkingContent"
           ></div>
         </div>
@@ -76,82 +65,62 @@
     </div>
 
     <!-- 消息操作按钮 -->
-    <div class="absolute bottom-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+    <div class="absolute bottom-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
          :class="{ 'right-9': message.role === 'assistant' }">
       <!-- 复制按钮 -->
       <div 
-        class="w-6 h-6 rounded-full bg-white/80 flex items-center justify-center cursor-pointer shadow-sm hover:bg-blue-50 hover:text-blue-500 transition-colors"
+        class="w-6 h-6 rounded-lg bg-dark-50/80 flex items-center justify-center cursor-pointer text-dark-400 hover:bg-dark-200 hover:text-dark-600 transition-colors"
         title="复制消息"
         @click="$emit('copy', message.content)"
       >
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-        </svg>
+        <Copy :size="14" />
       </div>
 
       <!-- 复制思考过程按钮（如果有思考内容） -->
       <div 
         v-if="message.reasoningContent"
-        class="w-6 h-6 rounded-full bg-white/80 flex items-center justify-center cursor-pointer shadow-sm hover:bg-purple-50 hover:text-purple-500 transition-colors"
+        class="w-6 h-6 rounded-lg bg-dark-50/80 flex items-center justify-center cursor-pointer text-dark-400 hover:bg-dark-200 hover:text-dark-600 transition-colors"
         title="复制思考过程"
         @click="$emit('copy', message.reasoningContent)"
       >
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-          <line x1="12" y1="17" x2="12.01" y2="17"></line>
-        </svg>
+        <Brain :size="14" />
       </div>
 
       <!-- 编辑按钮 -->
       <div 
-        class="w-6 h-6 rounded-full bg-white/80 flex items-center justify-center cursor-pointer shadow-sm hover:bg-gray-200 hover:text-gray-700 transition-colors"
+        class="w-6 h-6 rounded bg-dark-50/80 flex items-center justify-center cursor-pointer text-dark-400 hover:bg-dark-200 hover:text-dark-600 transition-colors"
         title="编辑消息"
         @click="$emit('edit')"
       >
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-        </svg>
+        <Pencil :size="14" />
       </div>
 
       <!-- 删除按钮 -->
       <div 
-        class="w-6 h-6 rounded-full bg-white/80 flex items-center justify-center cursor-pointer shadow-sm hover:bg-red-50 hover:text-red-500 transition-colors"
+        class="w-6 h-6 rounded bg-dark-50/80 flex items-center justify-center cursor-pointer text-dark-400 hover:bg-dark-200 hover:text-error transition-colors"
         title="删除消息"
         @click="$emit('delete')"
       >
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 6h18"></path>
-          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-          <line x1="10" y1="11" x2="10" y2="17"></line>
-          <line x1="14" y1="11" x2="14" y2="17"></line>
-        </svg>
+        <Trash2 :size="14" />
       </div>
     </div>
 
     <!-- AI 消息重试按钮 -->
     <div 
       v-if="message.role === 'assistant'"
-      class="absolute bottom-2 right-2 w-5 h-5 bg-gray-100/10 rounded-full hidden group-hover:flex items-center justify-center cursor-pointer hover:bg-gray-200/20 hover:scale-110 transition-all"
+      class="absolute bottom-2 right-2 w-5 h-5 rounded hidden group-hover:flex items-center justify-center cursor-pointer text-dark-400 hover:bg-dark-200 hover:text-dark-600 transition-all"
       :class="{ 'animate-spin-slow': isRetrying }"
       title="重新发送"
       @click="$emit('retry')"
     >
-      <svg class="w-3 h-3 text-dark-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 2v6h-6"></path>
-        <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
-        <path d="M3 22v-6h6"></path>
-        <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
-      </svg>
+      <RotateCcw :size="12" />
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { Brain, ChevronDown, Copy, Pencil, Trash2, RotateCcw } from 'lucide-vue-next'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 
@@ -256,10 +225,12 @@ function formatTime(timestamp) {
 }
 
 .thinking-text :deep(code) {
-  background-color: rgba(139, 92, 246, 0.1);
-  padding: 0.125rem 0.25rem;
+  background-color: rgba(139, 92, 246, 0.15);
+  padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
   font-size: 0.8em;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  color: #6b21a8;
 }
 
 .thinking-text :deep(pre) {

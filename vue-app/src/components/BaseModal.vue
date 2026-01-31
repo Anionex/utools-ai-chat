@@ -17,9 +17,10 @@
               <h3 class="text-lg font-medium text-gray-800">{{ title }}</h3>
               <button 
                 @click="$emit('update:modelValue', false)"
-                class="bg-transparent border-none text-2xl cursor-pointer text-gray-400 hover:text-gray-600 transition-colors leading-none"
+                class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all"
+                title="关闭"
               >
-                &times;
+                <X :size="18" />
               </button>
             </div>
 
@@ -41,6 +42,7 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted } from 'vue'
+import { X } from 'lucide-vue-next'
 
 const props = defineProps({
   modelValue: {

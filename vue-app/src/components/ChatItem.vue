@@ -1,31 +1,26 @@
 <template>
   <li 
-    class="px-4 py-3 cursor-pointer border-b border-dark-700 transition-colors flex justify-between items-center hover:bg-dark-800 group"
-    :class="{ 'bg-dark-700 border-l-[3px] border-l-dark-200': isActive }"
+    class="mx-2 my-1 px-3 py-2.5 cursor-pointer rounded-xl transition-colors flex justify-between items-center hover:bg-dark-800 group"
+    :class="{ 'bg-dark-800 ring-1 ring-dark-600': isActive }"
     @click="$emit('select')"
   >
-    <div class="flex-1 overflow-hidden">
-      <div class="font-medium mb-1 truncate text-dark-50">{{ title }}</div>
-      <div class="text-xs text-dark-300 truncate">{{ preview }}</div>
+    <div class="flex-1 overflow-hidden min-w-0">
+      <div class="font-medium mb-0.5 truncate text-dark-200">{{ title }}</div>
+      <div class="text-xs text-dark-500 truncate">{{ preview }}</div>
     </div>
     <div 
-      class="w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer flex items-center justify-center text-dark-400 hover:text-error"
+      class="w-7 h-7 shrink-0 opacity-0 group-hover:opacity-100 transition-all cursor-pointer flex items-center justify-center text-dark-500 hover:text-error rounded-lg hover:bg-dark-700 ml-2"
       @click.stop="$emit('delete')"
       title="删除对话"
     >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 6h18"></path>
-        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-        <line x1="10" y1="11" x2="10" y2="17"></line>
-        <line x1="14" y1="11" x2="14" y2="17"></line>
-      </svg>
+      <Trash2 :size="14" />
     </div>
   </li>
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import { Trash2 } from 'lucide-vue-next'
 
 const props = defineProps({
   session: {
