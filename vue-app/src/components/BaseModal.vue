@@ -4,7 +4,9 @@
       <div 
         v-if="modelValue" 
         class="fixed inset-0 bg-black/50 z-[1000] flex justify-center items-center"
-        @click.self="closeOnBackdrop && $emit('update:modelValue', false)"
+        @pointerdown="handleBackdropPointerDown"
+        @pointerup="handleBackdropPointerUp"
+        @pointercancel="backdropPointerStarted = false"
       >
         <Transition name="scale">
           <div 
@@ -41,7 +43,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { X } from 'lucide-vue-next'
 
 const props = defineProps({
@@ -64,7 +66,8 @@ const props = defineProps({
   }
 })
 
-defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue'])
+const backdropPointerStarted = ref(false)
 
 const sizeClasses = computed(() => {
   switch (props.size) {
@@ -73,6 +76,18 @@ const sizeClasses = computed(() => {
     default: return 'max-w-lg mx-4'
   }
 })
+
+function handleBackdropPointerDown(event) {
+  backdropPointerStarted.value = event.target === event.currentTarget
+}
+
+function handleBackdropPointerUp(event) {
+  const shouldClose = backdropPointerStarted.value && event.target === event.currentTarget
+  backdropPointerStarted.value = false
+  if (shouldClose && props.closeOnBackdrop) {
+    emit('update:modelValue', false)
+  }
+}
 
 // ESC 键关闭
 function handleKeydown(e) {
@@ -89,5 +104,4 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
 })
 </script>
-
 
