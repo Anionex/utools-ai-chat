@@ -7,6 +7,20 @@ export const useModelStore = defineStore('model', () => {
   const currentModelIndex = ref(0)
   const thinkingBudget = ref(32768) // 默认 32K tokens，用于控制思考模型的输出长度
 
+  function normalizeModelIndex(index) {
+    if (modelConfigs.value.length === 0) return 0
+
+    const numericIndex = Number(index)
+    if (!Number.isInteger(numericIndex)) return 0
+    return Math.min(Math.max(numericIndex, 0), modelConfigs.value.length - 1)
+  }
+
+  function saveCurrentModelIndex() {
+    if (window.preload) {
+      window.preload.dbUtil.saveModelIndex(currentModelIndex.value)
+    }
+  }
+
   // 计算属性
   const currentModel = computed(() => {
     return modelConfigs.value[currentModelIndex.value] || null
@@ -21,7 +35,7 @@ export const useModelStore = defineStore('model', () => {
     if (!window.preload) return
     
     modelConfigs.value = window.preload.dbUtil.getModelConfig() || []
-    currentModelIndex.value = window.preload.dbUtil.getModelIndex() || 0
+    const savedModelIndex = window.preload.dbUtil.getModelIndex()
     
     // 加载思考深度设置
     const savedBudget = window.preload.dbUtil.getThinkingBudget?.()
@@ -37,6 +51,11 @@ export const useModelStore = defineStore('model', () => {
       key: config.key || '',
       systemPrompt: config.systemPrompt || ''
     }))
+
+    currentModelIndex.value = normalizeModelIndex(savedModelIndex)
+    if (currentModelIndex.value !== savedModelIndex) {
+      saveCurrentModelIndex()
+    }
   }
   
   // 设置思考深度
@@ -87,6 +106,10 @@ export const useModelStore = defineStore('model', () => {
     }
 
     modelConfigs.value.push(config)
+    if (modelConfigs.value.length === 1) {
+      currentModelIndex.value = 0
+      saveCurrentModelIndex()
+    }
     saveModelConfigs()
   }
 
@@ -111,14 +134,17 @@ export const useModelStore = defineStore('model', () => {
       throw new Error('模型索引无效')
     }
 
+    const previousIndex = currentModelIndex.value
     modelConfigs.value.splice(index, 1)
-    
-    // 如果删除的是当前选中的模型，重置索引
-    if (currentModelIndex.value >= modelConfigs.value.length) {
-      currentModelIndex.value = Math.max(0, modelConfigs.value.length - 1)
+
+    if (index < previousIndex) {
+      currentModelIndex.value = previousIndex - 1
+    } else {
+      currentModelIndex.value = normalizeModelIndex(previousIndex)
     }
     
     saveModelConfigs()
+    saveCurrentModelIndex()
   }
 
   // 保存模型配置
@@ -133,9 +159,7 @@ export const useModelStore = defineStore('model', () => {
       throw new Error('模型索引无效')
     }
     currentModelIndex.value = index
-    if (window.preload) {
-      window.preload.dbUtil.saveModelIndex(index)
-    }
+    saveCurrentModelIndex()
   }
 
   // 切换到下一个模型
@@ -168,5 +192,4 @@ export const useModelStore = defineStore('model', () => {
     setThinkingBudget
   }
 })
-
 
