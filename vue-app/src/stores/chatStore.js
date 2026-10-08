@@ -2,6 +2,8 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
 export const useChatStore = defineStore('chat', () => {
+  const STREAM_SAVE_INTERVAL = 250
+
   // 将消息数组转换为可保存的纯对象（完全序列化，移除响应式代理和临时字段）
   function toSaveableMessages(messages) {
     // 使用 JSON.parse(JSON.stringify()) 进行完全深度克隆，确保没有 Vue 响应式代理
@@ -17,6 +19,94 @@ export const useChatStore = defineStore('chat', () => {
   const currentSessionId = ref(null)
   const currentMessages = ref([])
   const isGenerating = ref(false)
+  const deletedSessionIds = new Set()
+  let lastStreamSaveTime = 0
+  let pendingStreamSave = null
+  let pendingStreamSaveTimer = null
+
+  function clearPendingStreamSave(sessionId) {
+    if (pendingStreamSave?.sessionId !== sessionId) return
+
+    if (pendingStreamSaveTimer) {
+      clearTimeout(pendingStreamSaveTimer)
+    }
+    pendingStreamSave = null
+    pendingStreamSaveTimer = null
+  }
+
+  function saveMessages(sessionId, messages, lastTime = Date.now()) {
+    if (!window.preload || !sessionId || deletedSessionIds.has(sessionId)) return
+    clearPendingStreamSave(sessionId)
+    window.preload.dbUtil.saveChatHistory(sessionId, toSaveableMessages(messages), lastTime)
+  }
+
+  function commitPendingStreamSave() {
+    if (!pendingStreamSave) return
+
+    const { sessionId, messages, lastTime } = pendingStreamSave
+    pendingStreamSave = null
+    pendingStreamSaveTimer = null
+    if (deletedSessionIds.has(sessionId)) return
+
+    lastStreamSaveTime = Date.now()
+    window.preload?.dbUtil.saveChatHistory(sessionId, messages, lastTime)
+  }
+
+  function scheduleStreamSave(sessionId, messages) {
+    if (!window.preload || !sessionId || deletedSessionIds.has(sessionId)) return
+
+    pendingStreamSave = {
+      sessionId,
+      messages: toSaveableMessages(messages),
+      lastTime: Date.now()
+    }
+
+    const elapsed = Date.now() - lastStreamSaveTime
+    if (elapsed >= STREAM_SAVE_INTERVAL) {
+      if (pendingStreamSaveTimer) {
+        clearTimeout(pendingStreamSaveTimer)
+        pendingStreamSaveTimer = null
+      }
+      commitPendingStreamSave()
+      return
+    }
+
+    if (!pendingStreamSaveTimer) {
+      pendingStreamSaveTimer = setTimeout(commitPendingStreamSave, STREAM_SAVE_INTERVAL - elapsed)
+    }
+  }
+
+  function flushPendingChatSave() {
+    if (pendingStreamSaveTimer) {
+      clearTimeout(pendingStreamSaveTimer)
+      pendingStreamSaveTimer = null
+    }
+    commitPendingStreamSave()
+  }
+
+  function persistStreamingMessages(sessionId, messages) {
+    scheduleStreamSave(sessionId, messages)
+  }
+
+  function saveChatMessages(sessionId, messages) {
+    saveMessages(sessionId, messages)
+  }
+
+  function preservePartialResponseOrShowError(messages, messageIndex, error) {
+    const assistantMessage = messages[messageIndex]
+    if (assistantMessage?.content || assistantMessage?.reasoningContent) {
+      assistantMessage.isThinking = false
+      return
+    }
+
+    messages.splice(messageIndex, 1, {
+      role: 'assistant',
+      content: `发生错误: ${error.message}`,
+      reasoningContent: '',
+      isThinking: false,
+      timestamp: Date.now()
+    })
+  }
 
   // 计算属性
   const currentSession = computed(() => {
@@ -49,7 +139,7 @@ export const useChatStore = defineStore('chat', () => {
   // 加载聊天会话
   function loadChatSession(sessionId) {
     if (!window.preload) return
-    
+
     currentSessionId.value = sessionId
     currentMessages.value = window.preload.dbUtil.getChatHistory(sessionId) || []
   }
@@ -57,6 +147,7 @@ export const useChatStore = defineStore('chat', () => {
   // 创建新会话
   function createNewChat(systemPrompt = '') {
     const sessionId = Date.now().toString()
+    deletedSessionIds.delete(sessionId)
     currentSessionId.value = sessionId
     currentMessages.value = []
 
@@ -84,7 +175,10 @@ export const useChatStore = defineStore('chat', () => {
   // 删除聊天会话
   function deleteChatSession(sessionId) {
     if (!window.preload) return
-    
+
+    deletedSessionIds.add(sessionId)
+    clearPendingStreamSave(sessionId)
+
     // 从数据库中删除
     window.preload.dbUtil.deleteChatHistory(sessionId)
 
@@ -104,22 +198,18 @@ export const useChatStore = defineStore('chat', () => {
   // 发送消息
   // options: { thinkingBudget } - 可选参数，用于控制思考模型的输出长度
   async function sendMessage(content, modelConfig, onProgress, options = {}) {
-    console.log('chatStore.sendMessage 被调用')
-    console.log('content:', content)
-    console.log('modelConfig:', modelConfig)
-    console.log('options:', options)
-    
     if (!content.trim() || !modelConfig) {
-      console.log('内容为空或模型配置为空，直接返回')
       return
     }
 
     // 将 modelConfig 转换为纯对象（移除 Vue 响应式代理）
     const plainModelConfig = JSON.parse(JSON.stringify(modelConfig))
-    console.log('plainModelConfig:', plainModelConfig)
     
     // 提取思考深度参数
     const thinkingBudget = options.thinkingBudget
+
+    const sessionId = currentSessionId.value
+    const sessionMessages = currentMessages.value
 
     // 添加用户消息
     const userMessage = {
@@ -127,25 +217,22 @@ export const useChatStore = defineStore('chat', () => {
       content: content,
       timestamp: Date.now()
     }
-    currentMessages.value.push(userMessage)
+    sessionMessages.push(userMessage)
 
     // 保存到数据库
-    const currentTime = Date.now()
-    if (window.preload) {
-      window.preload.dbUtil.saveChatHistory(currentSessionId.value, toSaveableMessages(currentMessages.value), currentTime)
-    }
+    saveMessages(sessionId, sessionMessages)
 
     // 更新会话列表
-    updateSessionInList()
+    updateSessionInList(sessionId, sessionMessages)
 
     // 准备发送给AI的消息
-    const aiMessages = currentMessages.value.map(msg => ({
+    const aiMessages = sessionMessages.map(msg => ({
       role: msg.role,
       content: msg.content
     }))
 
     // 添加AI回复占位
-    currentMessages.value.push({
+    sessionMessages.push({
       role: 'assistant',
       content: '',
       reasoningContent: '', // 思考过程内容
@@ -154,7 +241,7 @@ export const useChatStore = defineStore('chat', () => {
     })
     
     // 获取响应式版本的消息引用（使用数组索引）
-    const aiMessageIndex = currentMessages.value.length - 1
+    const aiMessageIndex = sessionMessages.length - 1
 
     try {
       isGenerating.value = true
@@ -164,44 +251,33 @@ export const useChatStore = defineStore('chat', () => {
         await window.preload.aiUtil.callAI(plainModelConfig, aiMessages, (progress) => {
           // 支持新格式（带思考内容）和旧格式（纯字符串）
           if (typeof progress === 'object') {
-            currentMessages.value[aiMessageIndex].content = progress.content
-            currentMessages.value[aiMessageIndex].reasoningContent = progress.reasoningContent
-            currentMessages.value[aiMessageIndex].isThinking = progress.isThinking
+            sessionMessages[aiMessageIndex].content = progress.content
+            sessionMessages[aiMessageIndex].reasoningContent = progress.reasoningContent
+            sessionMessages[aiMessageIndex].isThinking = progress.isThinking
             if (onProgress) onProgress(progress)
           } else {
             // 兼容旧格式
-            currentMessages.value[aiMessageIndex].content = progress
+            sessionMessages[aiMessageIndex].content = progress
             if (onProgress) onProgress({ content: progress, reasoningContent: '', isThinking: false })
           }
+          scheduleStreamSave(sessionId, sessionMessages)
         }, { maxTokens: thinkingBudget })
       }
 
       // 保存到数据库
-      if (window.preload) {
-        window.preload.dbUtil.saveChatHistory(currentSessionId.value, toSaveableMessages(currentMessages.value), currentTime)
-      }
+      flushPendingChatSave()
+      saveMessages(sessionId, sessionMessages)
 
       // 更新会话列表
-      updateSessionInList()
+      updateSessionInList(sessionId, sessionMessages)
       
-      return currentMessages.value[aiMessageIndex].content
+      return sessionMessages[aiMessageIndex].content
     } catch (error) {
-      // 移除失败的消息
-      currentMessages.value.pop()
-
-      // 添加错误消息
-      currentMessages.value.push({
-        role: 'assistant',
-        content: `发生错误: ${error.message}`,
-        reasoningContent: '',
-        isThinking: false,
-        timestamp: Date.now()
-      })
+      preservePartialResponseOrShowError(sessionMessages, aiMessageIndex, error)
 
       // 保存到数据库
-      if (window.preload) {
-        window.preload.dbUtil.saveChatHistory(currentSessionId.value, toSaveableMessages(currentMessages.value), currentTime)
-      }
+      flushPendingChatSave()
+      saveMessages(sessionId, sessionMessages)
 
       throw error
     } finally {
@@ -218,31 +294,34 @@ export const useChatStore = defineStore('chat', () => {
     // 提取思考深度参数
     const thinkingBudget = options.thinkingBudget
 
+    const sessionId = currentSessionId.value
+    const sessionMessages = currentMessages.value
+
     // 获取要重试的消息的前一条用户消息
     let userMessageIndex = messageIndex - 1
-    while (userMessageIndex >= 0 && currentMessages.value[userMessageIndex].role !== 'user') {
+    while (userMessageIndex >= 0 && sessionMessages[userMessageIndex].role !== 'user') {
       userMessageIndex--
     }
 
-    const userMessage = currentMessages.value[userMessageIndex]
+    const userMessage = sessionMessages[userMessageIndex]
     if (!userMessage || userMessage.role !== 'user') {
       throw new Error('找不到对应的用户消息')
     }
 
     // 移除当前的AI回复
-    currentMessages.value.splice(messageIndex, 1)
+    sessionMessages.splice(messageIndex, 1)
 
     // 准备发送给AI的消息（到用户消息为止）
     const aiMessages = []
     for (let i = 0; i <= userMessageIndex; i++) {
       aiMessages.push({
-        role: currentMessages.value[i].role,
-        content: currentMessages.value[i].content
+        role: sessionMessages[i].role,
+        content: sessionMessages[i].content
       })
     }
 
     // 添加新的AI回复占位
-    currentMessages.value.push({
+    sessionMessages.push({
       role: 'assistant',
       content: '',
       reasoningContent: '', // 思考过程内容
@@ -251,7 +330,7 @@ export const useChatStore = defineStore('chat', () => {
     })
     
     // 获取响应式版本的消息引用（使用数组索引）
-    const aiMessageIndex = currentMessages.value.length - 1
+    const aiMessageIndex = sessionMessages.length - 1
 
     try {
       isGenerating.value = true
@@ -261,40 +340,32 @@ export const useChatStore = defineStore('chat', () => {
         await window.preload.aiUtil.callAI(plainModelConfig, aiMessages, (progress) => {
           // 支持新格式（带思考内容）和旧格式（纯字符串）
           if (typeof progress === 'object') {
-            currentMessages.value[aiMessageIndex].content = progress.content
-            currentMessages.value[aiMessageIndex].reasoningContent = progress.reasoningContent
-            currentMessages.value[aiMessageIndex].isThinking = progress.isThinking
+            sessionMessages[aiMessageIndex].content = progress.content
+            sessionMessages[aiMessageIndex].reasoningContent = progress.reasoningContent
+            sessionMessages[aiMessageIndex].isThinking = progress.isThinking
             if (onProgress) onProgress(progress)
           } else {
             // 兼容旧格式
-            currentMessages.value[aiMessageIndex].content = progress
+            sessionMessages[aiMessageIndex].content = progress
             if (onProgress) onProgress({ content: progress, reasoningContent: '', isThinking: false })
           }
+          scheduleStreamSave(sessionId, sessionMessages)
         }, { maxTokens: thinkingBudget })
       }
 
       // 保存到数据库
-      const currentTime = Date.now()
-      if (window.preload) {
-        window.preload.dbUtil.saveChatHistory(currentSessionId.value, toSaveableMessages(currentMessages.value), currentTime)
-      }
+      flushPendingChatSave()
+      saveMessages(sessionId, sessionMessages)
 
       // 更新会话列表
-      loadChatSessions()
+      updateSessionInList(sessionId, sessionMessages)
       
-      return currentMessages.value[aiMessageIndex].content
+      return sessionMessages[aiMessageIndex].content
     } catch (error) {
-      // 移除失败的消息
-      currentMessages.value.pop()
+      preservePartialResponseOrShowError(sessionMessages, aiMessageIndex, error)
 
-      // 添加错误消息
-      currentMessages.value.push({
-        role: 'assistant',
-        content: `发生错误: ${error.message}`,
-        reasoningContent: '',
-        isThinking: false,
-        timestamp: Date.now()
-      })
+      flushPendingChatSave()
+      saveMessages(sessionId, sessionMessages)
 
       throw error
     } finally {
@@ -311,10 +382,7 @@ export const useChatStore = defineStore('chat', () => {
     currentMessages.value.splice(messageIndex, 1)
 
     // 保存到数据库
-    const currentTime = Date.now()
-    if (window.preload) {
-      window.preload.dbUtil.saveChatHistory(currentSessionId.value, toSaveableMessages(currentMessages.value), currentTime)
-    }
+    saveMessages(currentSessionId.value, currentMessages.value)
 
     // 更新会话列表
     updateSessionInList()
@@ -329,10 +397,7 @@ export const useChatStore = defineStore('chat', () => {
     currentMessages.value[messageIndex].content = newContent
 
     // 保存到数据库
-    const currentTime = Date.now()
-    if (window.preload) {
-      window.preload.dbUtil.saveChatHistory(currentSessionId.value, toSaveableMessages(currentMessages.value), currentTime)
-    }
+    saveMessages(currentSessionId.value, currentMessages.value)
 
     // 更新会话列表
     updateSessionInList()
@@ -370,21 +435,27 @@ export const useChatStore = defineStore('chat', () => {
     if (window.preload) {
       window.preload.aiUtil.abortCurrentResponse()
     }
+    flushPendingChatSave()
     isGenerating.value = false
   }
 
   // 更新会话列表中的当前会话
-  function updateSessionInList() {
-    const index = sessions.value.findIndex(s => s.id === currentSessionId.value)
+  function updateSessionInList(sessionId = currentSessionId.value, messages = currentMessages.value) {
+    if (!sessionId || deletedSessionIds.has(sessionId)) return
+
+    const updatedSession = {
+      id: sessionId,
+      messages: [...messages],
+      lastTime: Date.now()
+    }
+    const index = sessions.value.findIndex(s => s.id === sessionId)
     if (index !== -1) {
-      sessions.value[index] = {
-        id: currentSessionId.value,
-        messages: [...currentMessages.value],
-        lastTime: Date.now()
-      }
+      sessions.value[index] = updatedSession
       // 重新排序，将当前会话移到顶部
       const session = sessions.value.splice(index, 1)[0]
       sessions.value.unshift(session)
+    } else if (messages.length > 0) {
+      sessions.value.unshift(updatedSession)
     }
   }
 
@@ -408,8 +479,10 @@ export const useChatStore = defineStore('chat', () => {
     deleteMessage,
     editMessage,
     updateSystemPrompt,
-    abortCurrentResponse
+    abortCurrentResponse,
+    flushPendingChatSave,
+    persistStreamingMessages,
+    saveChatMessages,
+    updateSessionInList
   }
 })
-
-

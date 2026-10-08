@@ -4,7 +4,9 @@
       <div 
         v-if="modelValue" 
         class="fixed inset-0 bg-black/30 z-[1001]"
-        @click.self="$emit('update:modelValue', false)"
+        @pointerdown="handleBackdropPointerDown"
+        @pointerup="handleBackdropPointerUp"
+        @pointercancel="backdropPointerStarted = false"
       >
         <div 
           class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-dark-900 text-white rounded-xl shadow-2xl p-5 min-w-[400px] max-w-[600px]"
@@ -31,8 +33,8 @@
           <!-- 模型列表 -->
           <ul class="list-none m-0 p-0 max-h-[300px] overflow-y-auto">
             <li
-              v-for="(model, index) in filteredModels"
-              :key="index"
+              v-for="(entry, index) in filteredModels"
+              :key="entry.originalIndex"
               class="px-3 py-2.5 cursor-pointer flex items-center gap-3 rounded-lg my-1 transition-colors"
               :class="{
                 'bg-dark-700': activeIndex === index,
@@ -42,14 +44,14 @@
               @mouseenter="activeIndex = index"
             >
               <Check 
-                v-if="getOriginalIndex(index) === currentIndex" 
+                v-if="entry.originalIndex === currentIndex"
                 :size="16" 
                 class="text-green-400" 
               />
               <div v-else class="w-4"></div>
-              <div class="flex-1 text-sm">{{ model.name }}</div>
+              <div class="flex-1 text-sm">{{ entry.model.name }}</div>
               <div class="text-dark-500 text-xs">
-                {{ getOriginalIndex(index) + 1 }}
+                {{ entry.originalIndex + 1 }}
               </div>
             </li>
             <li v-if="filteredModels.length === 0" class="px-3 py-4 text-dark-400 text-center">
@@ -87,22 +89,15 @@ const emit = defineEmits(['update:modelValue', 'select'])
 const searchInputRef = ref(null)
 const searchQuery = ref('')
 const activeIndex = ref(0)
+const backdropPointerStarted = ref(false)
 
 // 过滤后的模型列表
 const filteredModels = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return props.models
-  }
-  return props.models.filter(model => 
-    model.name.toLowerCase().includes(searchQuery.value.toLowerCase())
-  )
+  const query = searchQuery.value.trim().toLowerCase()
+  return props.models
+    .map((model, originalIndex) => ({ model, originalIndex }))
+    .filter(({ model }) => !query || model.name.toLowerCase().includes(query))
 })
-
-// 获取原始索引
-function getOriginalIndex(filteredIndex) {
-  const model = filteredModels.value[filteredIndex]
-  return props.models.findIndex(m => m.name === model.name)
-}
 
 // 当弹窗打开时聚焦搜索框
 watch(() => props.modelValue, (val) => {
@@ -121,9 +116,20 @@ watch(searchQuery, () => {
 })
 
 function handleSelect(index) {
-  const originalIndex = getOriginalIndex(index)
-  emit('select', originalIndex)
+  emit('select', filteredModels.value[index].originalIndex)
   emit('update:modelValue', false)
+}
+
+function handleBackdropPointerDown(event) {
+  backdropPointerStarted.value = event.target === event.currentTarget
+}
+
+function handleBackdropPointerUp(event) {
+  const shouldClose = backdropPointerStarted.value && event.target === event.currentTarget
+  backdropPointerStarted.value = false
+  if (shouldClose) {
+    emit('update:modelValue', false)
+  }
 }
 
 function handleKeydown(e) {
@@ -159,5 +165,3 @@ function handleKeydown(e) {
   }
 }
 </script>
-
-

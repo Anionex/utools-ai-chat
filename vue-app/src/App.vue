@@ -133,6 +133,8 @@ onMounted(() => {
 
   // 设置键盘事件监听
   document.addEventListener('keydown', handleGlobalKeydown)
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+  window.addEventListener('beforeunload', chatStore.flushPendingChatSave)
 
   // 设置 uTools 特性触发回调
   if (window.preload) {
@@ -141,8 +143,17 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  chatStore.flushPendingChatSave()
   document.removeEventListener('keydown', handleGlobalKeydown)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+  window.removeEventListener('beforeunload', chatStore.flushPendingChatSave)
 })
+
+function handleVisibilityChange() {
+  if (document.visibilityState === 'hidden') {
+    chatStore.flushPendingChatSave()
+  }
+}
 
 // 全局键盘事件处理
 function handleGlobalKeydown(e) {
@@ -178,6 +189,7 @@ async function handleFeatureTriggered(detail) {
 
   // 加载会话
   chatStore.loadChatSession(sessionId)
+  const sessionMessages = chatStore.currentMessages
 
   // 准备消息
   const aiMessages = [
@@ -186,7 +198,7 @@ async function handleFeatureTriggered(detail) {
   ]
 
   // 添加 AI 回复占位
-  chatStore.currentMessages.push({
+  sessionMessages.push({
     role: 'assistant',
     content: '',
     reasoningContent: '',
@@ -195,7 +207,7 @@ async function handleFeatureTriggered(detail) {
   })
 
   // 获取消息索引，用于响应式更新
-  const aiMessageIndex = chatStore.currentMessages.length - 1
+  const aiMessageIndex = sessionMessages.length - 1
 
   try {
     chatStore.isGenerating = true
@@ -206,38 +218,33 @@ async function handleFeatureTriggered(detail) {
         // 支持新格式（带思考内容）和旧格式（纯字符串）
         // 通过数组索引更新，确保 Vue 响应式系统能够追踪变化
         if (typeof progress === 'object') {
-          chatStore.currentMessages[aiMessageIndex].content = progress.content
-          chatStore.currentMessages[aiMessageIndex].reasoningContent = progress.reasoningContent
-          chatStore.currentMessages[aiMessageIndex].isThinking = progress.isThinking
+          sessionMessages[aiMessageIndex].content = progress.content
+          sessionMessages[aiMessageIndex].reasoningContent = progress.reasoningContent
+          sessionMessages[aiMessageIndex].isThinking = progress.isThinking
         } else {
-          chatStore.currentMessages[aiMessageIndex].content = progress
+          sessionMessages[aiMessageIndex].content = progress
         }
+        chatStore.persistStreamingMessages(sessionId, sessionMessages)
       })
     }
 
-    // 保存（转换为可序列化的纯对象）
-    if (window.preload) {
-      const saveableMessages = JSON.parse(JSON.stringify(chatStore.currentMessages)).map(msg => {
-        const { isThinking, ...rest } = msg
-        return rest
-      })
-      window.preload.dbUtil.saveChatHistory(
-        chatStore.currentSessionId,
-        saveableMessages,
-        Date.now()
-      )
-    }
+    chatStore.saveChatMessages(sessionId, sessionMessages)
 
-    chatStore.loadChatSessions()
+    chatStore.updateSessionInList(sessionId, sessionMessages)
   } catch (error) {
-    chatStore.currentMessages.pop()
-    chatStore.currentMessages.push({
-      role: 'assistant',
-      content: `发生错误: ${error.message}`,
-      reasoningContent: '',
-      isThinking: false,
-      timestamp: Date.now()
-    })
+    const assistantMessage = sessionMessages[aiMessageIndex]
+    if (assistantMessage?.content || assistantMessage?.reasoningContent) {
+      assistantMessage.isThinking = false
+    } else {
+      sessionMessages.splice(aiMessageIndex, 1, {
+        role: 'assistant',
+        content: `发生错误: ${error.message}`,
+        reasoningContent: '',
+        isThinking: false,
+        timestamp: Date.now()
+      })
+    }
+    chatStore.saveChatMessages(sessionId, sessionMessages)
     notification.error(error.message)
   } finally {
     chatStore.isGenerating = false
@@ -302,21 +309,15 @@ function handleSwitchNextModel() {
 
 // 发送消息
 async function handleSend(content) {
-  console.log('handleSend 被调用, content:', content)
-  console.log('currentModel:', modelStore.currentModel)
-  console.log('thinkingBudget:', modelStore.thinkingBudget)
-  
   if (!modelStore.currentModel) {
     notification.warning('请先添加模型配置')
     return
   }
 
   try {
-    console.log('开始发送消息...')
     await chatStore.sendMessage(content, modelStore.currentModel, null, {
       thinkingBudget: modelStore.thinkingBudget
     })
-    console.log('消息发送完成')
   } catch (error) {
     console.error('发送消息错误:', error)
     notification.error(error.message)
@@ -408,5 +409,3 @@ async function handleRetryMessage(index) {
   }
 }
 </script>
-
-

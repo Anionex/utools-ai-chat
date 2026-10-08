@@ -7,7 +7,8 @@
     "dev": "vite",
     "clean": "rm -rf ../assets ../index.html",
     "build": "npm run clean && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
     "highlight.js": "^11.9.0",

@@ -1,6 +1,47 @@
 // 增强版preload.js，优化鼠标中键菜单集成功能
 const { clipboard } = require('electron')
 
+function createSSELineParser(onData) {
+  let buffer = ''
+
+  function parseLine(line) {
+    const trimmedLine = line.trim()
+    if (!trimmedLine || trimmedLine.startsWith(':') || !trimmedLine.startsWith('data:')) {
+      return
+    }
+
+    const data = trimmedLine.slice(5).trimStart()
+    if (!data || data === '[DONE]') {
+      return
+    }
+
+    let parsedData
+    try {
+      parsedData = JSON.parse(data)
+    } catch (error) {
+      console.error('解析响应数据失败:', error, '原始数据:', data)
+      return
+    }
+
+    onData(parsedData)
+  }
+
+  return {
+    push(text) {
+      buffer += text
+      const lines = buffer.split(/\r?\n/)
+      buffer = lines.pop() || ''
+      lines.forEach(parseLine)
+    },
+    finish() {
+      if (buffer) {
+        parseLine(buffer)
+      }
+      buffer = ''
+    }
+  }
+}
+
 // 数据库操作相关函数
 const dbUtil = {
   // 保存聊天记录
@@ -111,17 +152,13 @@ const aiUtil = {
   // onProgress 回调接收对象: { content, reasoningContent, isThinking }
   // options: { maxTokens } - 可选参数，用于控制思考模型的输出长度
   async callAI(modelConfig, messages, onProgress, options = {}) {
-    console.log('aiUtil.callAI 被调用')
-    console.log('modelConfig:', modelConfig)
-    console.log('messages:', messages)
-    console.log('options:', options)
-    
     // 如果有正在进行的请求，先中断它
     this.abortCurrentResponse()
 
     // 创建新的 AbortController
-    this.currentController = new AbortController()
-    const signal = this.currentController.signal
+    const controller = new AbortController()
+    this.currentController = controller
+    const signal = controller.signal
 
     // 构建请求体
     const requestBody = {
@@ -135,8 +172,11 @@ const aiUtil = {
       requestBody.max_tokens = options.maxTokens
     }
 
+    let content = ''
+    let reasoningContent = ''
+    let isThinking = false
+
     try {
-      console.log('开始 fetch 请求到:', modelConfig.url)
       const response = await fetch(modelConfig.url, {
         method: 'POST',
         headers: {
@@ -154,83 +194,63 @@ const aiUtil = {
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
-      let content = ''
-      let reasoningContent = '' // 思考过程内容
-      let isThinking = false // 当前是否在思考阶段
+      const parser = createSSELineParser((json) => {
+        const delta = json.choices?.[0]?.delta
 
-      console.log('开始读取流式响应...')
-      
+        if (!delta) {
+          return
+        }
+
+        // 处理思考模型的 reasoning_content（DeepSeek-R1 等模型）
+        if (delta.reasoning_content) {
+          reasoningContent += delta.reasoning_content
+          isThinking = true
+          onProgress({
+            content,
+            reasoningContent,
+            isThinking: true
+          })
+        }
+
+        // 处理普通内容
+        if (delta.content) {
+          content += delta.content
+          // 一旦有 content 输出，说明思考阶段结束
+          if (isThinking) {
+            isThinking = false
+          }
+          onProgress({
+            content,
+            reasoningContent,
+            isThinking: false
+          })
+        }
+      })
+
       while (true) {
         const { done, value } = await reader.read()
         if (done) {
-          console.log('流式响应读取完成')
           break
         }
 
-        const chunk = decoder.decode(value)
-        console.log('收到 chunk:', chunk)
-        const lines = chunk.split('\n')
-
-        for (const line of lines) {
-          if (line.trim() === '') continue
-          if (line.trim() === 'data: [DONE]') {
-            console.log('收到 [DONE] 信号')
-            continue
-          }
-
-          try {
-            const jsonStr = line.replace(/^data: /, '')
-            console.log('解析 JSON:', jsonStr)
-            const json = JSON.parse(jsonStr)
-            const delta = json.choices[0]?.delta
-            console.log('delta:', delta)
-            
-            if (delta) {
-              // 处理思考模型的 reasoning_content（DeepSeek-R1 等模型）
-              if (delta.reasoning_content) {
-                reasoningContent += delta.reasoning_content
-                isThinking = true
-                console.log('思考内容更新:', reasoningContent.slice(-50))
-                onProgress({
-                  content,
-                  reasoningContent,
-                  isThinking: true
-                })
-              }
-              
-              // 处理普通内容
-              if (delta.content) {
-                content += delta.content
-                console.log('内容更新:', content.slice(-50))
-                // 一旦有 content 输出，说明思考阶段结束
-                if (isThinking) {
-                  isThinking = false
-                }
-                onProgress({
-                  content,
-                  reasoningContent,
-                  isThinking: false
-                })
-              }
-            }
-          } catch (e) {
-            console.error('解析响应数据失败:', e, '原始行:', line)
-          }
-        }
+        const chunk = decoder.decode(value, { stream: true })
+        parser.push(chunk)
       }
-      
-      console.log('最终内容长度:', content.length)
-      console.log('最终思考内容长度:', reasoningContent.length)
 
-      // 清除当前控制器
-      this.currentController = null
+      parser.push(decoder.decode())
+      parser.finish()
+
       return { content, reasoningContent }
     } catch (error) {
       // 如果是中断导致的错误，不需要抛出
       if (error.name === 'AbortError') {
-        return { content: '', reasoningContent: '' }
+        return { content, reasoningContent }
       }
       throw error
+    } finally {
+      if (this.currentController === controller) {
+        this.currentController = null
+      }
     }
   }
 }
@@ -432,5 +452,3 @@ window.utools.onPluginEnter(({ code, type, payload }) => {
 
 // 在插件加载时初始化动态功能
 initDynamicFeatures()
-
-

@@ -10,6 +10,7 @@ plugin.json
 logo.png
 
 # 但保留源文件
+!vue-app/index.html
 !vue-app/public/
 
 # 环境变量
